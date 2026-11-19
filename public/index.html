@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SHBN – Fresh Processing Records System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F2F0;
+  --surface:#FFFFFF;
+  --surface-alt:#F7F5F3;
+  --ink:#1F1A1A;
+  --ink-2:#5E5757;
+  --ink-3:#8A8282;
+  --line:#E4E0DD;
+  --line-strong:#CFC9C5;
+  --primary:#8C2F39;
+  --primary-dark:#6F232C;
+  --primary-tint:#F6E6E5;
+  --side:#241619;
+  --side-ink:#E8DDDB;
+  --side-dim:#A89A98;
+  --green:#2F6B4F;  --green-tint:#E3F0E9;
+  --amber:#9A5B00;  --amber-tint:#FBEBD0;
+  --danger:#B3261E; --danger-tint:#FBE4E2;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(36,22,25,.06), 0 2px 10px rgba(36,22,25,.05);
+  --sidebar-w:256px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+h1,h2,h3{margin:0;font-weight:600;}
+.mono,.num{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;font-size:14px;}
+a{color:var(--primary);}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;}
+.sidebar{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.side-brand{display:flex;gap:12px;align-items:center;padding:22px 20px 18px;}
+.side-mark{width:40px;height:40px;border-radius:10px;background:var(--primary);display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.5px;color:#fff;}
+.side-title{font-weight:600;font-size:15px;line-height:1.2;color:#fff;}
+.side-sub{font-size:12px;color:var(--side-dim);margin-top:2px;}
+.nav{padding:6px 12px 20px;display:flex;flex-direction:column;gap:2px;}
+.nav-group{margin:16px 8px 6px;font-size:12px;color:var(--side-dim);font-weight:500;display:flex;align-items:center;gap:8px;}
+.nav-group .mk{font-size:15px;}
+.nav a,.nav .nav-off{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;color:var(--side-ink);text-decoration:none;font-weight:500;font-size:14px;position:relative;}
+.nav a:hover{background:rgba(255,255,255,.07);}
+.nav a.active{background:rgba(255,255,255,.12);color:#fff;}
+.nav a.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#E8A39B;}
+.nav .nav-off{color:var(--side-dim);cursor:default;}
+.nav svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.9;}
+.badge{margin-left:auto;background:#E8A39B;color:#3A1519;border-radius:999px;font-size:11.5px;font-weight:700;padding:1px 8px;min-width:22px;text-align:center;}
+.soon{margin-left:auto;font-size:11px;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:0 8px;color:var(--side-dim);}
+.side-foot{margin-top:auto;padding:14px 20px;font-size:12px;color:var(--side-dim);border-top:1px solid rgba(255,255,255,.08);}
+
+.main{min-width:0;}
+.scrim{display:none;}
+.topbar-m{display:none;}
+.page{max-width:1120px;margin:0 auto;padding:28px 28px 70px;}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
+.page-head h1{font-size:24px;letter-spacing:-.2px;}
+.page-head p{margin:4px 0 0;color:var(--ink-2);font-size:14px;}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);transform:translateX(-100%);transition:transform .2s;z-index:60;}
+  body.nav-open .sidebar{transform:none;box-shadow:0 0 40px rgba(0,0,0,.4);}
+  .scrim{position:fixed;inset:0;background:rgba(20,10,12,.45);z-index:50;}
+  body.nav-open .scrim{display:block;}
+  .topbar-m{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;}
+  .topbar-m button{background:none;border:1px solid var(--line-strong);border-radius:8px;width:38px;height:38px;display:grid;place-items:center;}
+  .topbar-m strong{font-weight:600;}
+  .page{padding:20px 16px 60px;}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+
+/* ---------- cards & forms ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:18px;}
+.card-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:10px;justify-content:space-between;}
+.card-title .step{width:22px;height:22px;border-radius:50%;background:var(--primary-tint);color:var(--primary-dark);display:inline-grid;place-items:center;font-size:12px;font-weight:600;margin-right:8px;}
+.hint{font-size:13px;color:var(--ink-2);margin:-6px 0 14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media (max-width:700px){.grid2,.grid3{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.field label{font-size:13px;font-weight:500;color:var(--ink-2);}
+.field input,.field select,.inline-input{padding:9px 12px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;color:var(--ink);outline:none;transition:border-color .12s, box-shadow .12s;}
+.field input:focus,.field select:focus,.inline-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.field input:disabled,.field select:disabled{background:var(--surface-alt);color:var(--ink-3);cursor:not-allowed;}
+.field input[readonly]{background:var(--surface-alt);color:var(--ink-2);}
+.uc{text-transform:uppercase;}
+.uc::placeholder{text-transform:none;}
+.inline-input{width:96px;padding:6px 8px;}
+.gated.locked{opacity:.5;pointer-events:none;}
+.note{font-size:13px;border-radius:8px;padding:9px 12px;margin-bottom:14px;border:1px solid;}
+.note.warn{color:var(--amber);background:var(--amber-tint);border-color:#E9C58E;}
+.note.err{color:var(--danger);background:var(--danger-tint);border-color:#EDB4AF;}
+
+.btn{border:1px solid transparent;border-radius:8px;padding:9px 16px;font-weight:600;font-size:14px;transition:background .15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.btn-primary:disabled{background:#CDBDBC;cursor:not-allowed;}
+.btn-outline{background:#fff;color:var(--primary);border-color:var(--primary);}
+.btn-outline:hover{background:var(--primary-tint);}
+.btn-outline:disabled{color:var(--ink-3);border-color:var(--line-strong);cursor:not-allowed;background:#fff;}
+.btn-ghost{background:var(--surface-alt);color:var(--ink);border-color:var(--line);}
+.btn-ghost:hover{background:var(--line);}
+.btn-danger{background:#fff;color:var(--danger);border-color:var(--danger);}
+.btn-danger:hover{background:var(--danger-tint);}
+.btn-sm{padding:5px 11px;font-size:13px;border-radius:6px;}
+.btn-block{width:100%;justify-content:center;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center;}
+
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th{text-align:left;font-size:12.5px;font-weight:600;color:var(--ink-2);padding:9px 10px;border-bottom:1px solid var(--line-strong);background:var(--surface-alt);white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);margin-bottom:8px;}
+.empty-row td{text-align:center;color:var(--ink-3);padding:26px;}
+td.r,th.r{text-align:right;}
+th.copy-col{cursor:pointer;user-select:none;}
+th.copy-col:hover{color:var(--primary);background:var(--primary-tint);}
+tr.grp-start td{border-top:2px solid var(--line-strong);}
+tr.clickable{cursor:pointer;}
+tr.clickable:hover td{background:var(--surface-alt);}
+
+.summary-strip{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-strong);}
+.summary-box{flex:1;min-width:140px;background:var(--surface-alt);border:1px solid var(--line);border-radius:8px;padding:10px 14px;}
+.summary-box .lbl{font-size:13px;color:var(--ink-2);}
+.summary-box .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-top:2px;}
+.summary-box.bad{background:var(--danger-tint);border-color:#EDB4AF;}
+.summary-box.bad .val{color:var(--danger);}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:2px 10px 2px 8px;border-radius:999px;white-space:nowrap;}
+.pill svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.pill.pending{color:var(--amber);background:var(--amber-tint);}
+.pill.done{color:var(--green);background:var(--green-tint);}
+
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border:1px solid var(--line);border-radius:9px;background:#fff;margin-bottom:9px;cursor:pointer;transition:border-color .12s;flex-wrap:wrap;}
+.list-item:hover{border-color:var(--primary);}
+.li-title{font-weight:600;}
+.li-sub{font-size:13px;color:var(--ink-2);}
+.li-meta{display:flex;align-items:center;gap:10px;}
+.back-link{display:inline-flex;gap:6px;align-items:center;color:var(--primary);font-weight:600;font-size:14px;margin-bottom:14px;background:none;border:none;padding:0;text-decoration:none;}
+.back-link:hover{text-decoration:underline;}
+.divider-label{margin:20px 0 12px;font-weight:600;font-size:14px;color:var(--ink-2);display:flex;align-items:center;gap:10px;}
+.divider-label::after{content:"";flex:1;height:1px;background:var(--line);}
+.loading{text-align:center;padding:60px 20px;color:var(--ink-2);}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;}
+.tools .field{margin:0;}
+
+/* ---------- dashboard ---------- */
+.entry-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px;}
+@media (max-width:760px){.entry-cards{grid-template-columns:1fr;}}
+.ticket{display:grid;grid-template-columns:84px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink);overflow:hidden;position:relative;transition:transform .15s, border-color .15s;}
+a.ticket:hover{border-color:var(--primary);transform:translateY(-2px);}
+.ticket .stub{display:grid;place-items:center;font-size:32px;background:var(--primary-tint);border-right:2px dashed var(--line-strong);position:relative;}
+.ticket .stub::before,.ticket .stub::after{content:"";position:absolute;right:-9px;width:16px;height:16px;border-radius:50%;background:var(--bg);border:1px solid var(--line);}
+.ticket .stub::before{top:-9px;} .ticket .stub::after{bottom:-9px;}
+.ticket .body{padding:18px 20px;}
+.ticket h3{font-size:17px;}
+.ticket p{margin:4px 0 12px;color:var(--ink-2);font-size:13.5px;}
+.ticket .go{font-weight:600;color:var(--primary);display:inline-flex;gap:6px;align-items:center;}
+.ticket.off{background:var(--surface-alt);box-shadow:none;}
+.ticket.off .stub{background:#ECE9E6;filter:grayscale(1);opacity:.7;}
+.ticket.off .go{color:var(--ink-3);}
+.section-h{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:8px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+@media (max-width:980px){.stats{grid-template-columns:1fr 1fr;}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+.stat .lbl{font-size:13px;color:var(--ink-2);}
+.stat .big{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;margin:4px 0 2px;line-height:1.15;}
+.stat .sub{font-size:12.5px;color:var(--ink-3);}
+.stat.attn{border-color:#E9C58E;background:#FFFBF4;}
+.stat.attn .sub{color:var(--amber);font-weight:500;}
+
+/* ---------- toast / modal ---------- */
+#toastRoot{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:999;}
+.toast{background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:14px;box-shadow:var(--shadow);max-width:340px;animation:slideIn .2s ease-out;}
+.toast.success{background:var(--green);} .toast.error{background:var(--danger);}
+@keyframes slideIn{from{transform:translateY(10px);opacity:0;}to{transform:none;opacity:1;}}
+#modalRoot{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(36,22,25,.5);z-index:998;padding:20px;}
+#modalRoot.open{display:flex;}
+.modal-box{background:#fff;border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:var(--shadow);}
+.modal-box h3{margin-bottom:8px;color:var(--danger);}
+.modal-box p{color:var(--ink-2);margin:0 0 18px;}
+.login-wrap{max-width:360px;margin:50px auto;}
+
+#printArea{display:none;}
+@media print{
+  #shell,#toastRoot,#modalRoot{display:none !important;}
+  body{background:#fff;}
+  #printArea{display:block !important;width:100%;padding:24px;color:#000;font-family:'IBM Plex Sans',sans-serif;}
+  .print-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:2px;}
+  .print-sub{text-align:center;font-size:12px;margin-bottom:16px;}
+  .print-meta{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:12px;}
+  .print-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .print-table th,.print-table td{border:1px solid #999;padding:5px 6px;text-align:center;background:none;color:#000;}
+  .print-table tr:last-child td{border-bottom:1px solid #999 !important;}
+  .print-footer{margin-top:18px;font-size:12.5px;line-height:2;}
+  .print-operation{margin-top:34px;font-size:12.5px;}
+  .op-title{font-weight:700;margin-bottom:50px;}
+  .op-row{display:flex;justify-content:space-between;gap:60px;}
+  .op-row-labels{margin-top:44px;}
+  .op-col{flex:1;text-align:center;}
+  .op-line{border-bottom:1px solid #333;height:1px;width:65%;margin:0 auto 8px;}
+  .op-line-tall{margin-top:50px;}
+}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">
+      <div class="side-mark">FPRS</div>
+      <div><div class="side-title">Fresh Processing<br>Records</div><div class="side-sub">SHBN · Fresh Market</div></div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">Outlet SEGSHBN</div>
+  </aside>
+  <div class="scrim" onclick="toggleNav(false)"></div>
+  <div class="main">
+    <div class="topbar-m">
+      <button onclick="toggleNav(true)" aria-label="Open menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <strong>Fresh Processing Records</strong>
+    </div>
+    <main class="page" id="content"></main>
+  </div>
+</div>
+<div id="printArea"></div>
+<div id="toastRoot" role="status" aria-live="polite"></div>
+<div id="modalRoot"></div>
+
+<script>
+/* ============================= CONFIG / STATE ============================= */
+const TZ = 'Asia/Kuala_Lumpur';
+let ITEMS = { base: [], cut: [] };       // each: {plu, description, material, cost, active}
+let pendingCount = null;
+let renderToken = 0;
+
+const STATE = {
+  draft: null,                           // New Entry form
+  it: null,                              // IT detail: working copy of the entry
+  itForm: { matA:'', matB:'', wd:'', by:'', sys:'' },
+  itCalc: null,
+  admin: { base: [], cut: [] },
+  records: { month: '', status: 'all', q: '', entries: [] },
+};
+
+/* ============================= API ============================= */
+async function api(path, { method = 'GET', body, admin = false } = {}) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (admin) headers['x-admin-password'] = sessionStorage.getItem('fprs:admin') || '';
+  let res;
+  try { res = await fetch('/api/' + path, { method, headers, body: body ? JSON.stringify(body) : undefined }); }
+  catch (e) { throw new Error('Cannot reach the server. Check your connection.'); }
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (!res.ok || !data || data.ok === false) throw new Error((data && data.error) || ('Server responded with ' + res.status));
+  return data;
+}
+async function loadItems() { ITEMS = (await api('items')).items; }
+const activeItems = (type) => ITEMS[type].filter(i => i.active);
+const findItem = (type, plu) => ITEMS[type].find(i => String(i.plu) === String(plu));
+const findCost = (type, plu) => { const i = findItem(type, plu); return i ? Number(i.cost) : 0; };
+async function refreshBadge() {
+  try { pendingCount = (await api('pending')).pendingCount; } catch (e) { return; }
+  const b = document.getElementById('navBadge');
+  if (b) { b.textContent = pendingCount; b.style.display = pendingCount > 0 ? '' : 'none'; }
+}
+
+/* ============================= UTIL ============================= */
+const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const fmtQty = (n) => (Math.round((Number(n) || 0) * 100) / 100).toString();
+const fmtMoney = (n) => Number(n || 0).toFixed(2);
+const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const genId = () => 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+function tzParts(ms) {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, day:'numeric', month:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true }).formatToParts(new Date(ms));
+  const g = (t) => p.find(x => x.type === t).value;
+  return { d:String(+g('day')), m:String(+g('month')), y:g('year'), h:g('hour'), min:g('minute'), ap:g('dayPeriod').toUpperCase() };
+}
+// d.M.yyyy h.mmAM – the same format as the old sheet, always in Malaysia time
+function fmtStamp(ms) { if (!ms) return ''; const t = tzParts(ms); return `${t.d}.${t.m}.${t.y} ${t.h}.${t.min}${t.ap}`; }
+function monthKey(ms) { const t = tzParts(ms); return `${t.y}-${String(t.m).padStart(2,'0')}`; }
+function monthLabel(key) { const [y,m] = key.split('-'); return new Date(Date.UTC(+y, +m-1, 1)).toLocaleString('en-GB', { month:'long', year:'numeric', timeZone:'UTC' }); }
+function ago(ms) {
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if (mins < 60) return Math.max(mins,1) + ' min ago';
+  const h = Math.floor(mins / 60); if (h < 24) return h + ' hr ago';
+  const d = Math.floor(h / 24); return d + (d === 1 ? ' day ago' : ' days ago');
+}
+function upperize(el) { const pos = el.selectionStart; el.value = el.value.toUpperCase(); try { el.setSelectionRange(pos, pos); } catch (e) {} return el.value; }
+
+function toast(msg, type) {
+  const el = document.createElement('div'); el.className = 'toast ' + (type || ''); el.textContent = msg;
+  document.getElementById('toastRoot').appendChild(el); setTimeout(() => el.remove(), 3400);
+}
+function showModal(title, message) {
+  const m = document.getElementById('modalRoot');
+  m.innerHTML = `<div class="modal-box" role="alertdialog"><h3>${esc(title)}</h3><p>${esc(message)}</p><button class="btn btn-primary" onclick="closeModal()">OK</button></div>`;
+  m.classList.add('open');
+}
+function closeModal() { document.getElementById('modalRoot').classList.remove('open'); }
+
+async function copyColumn(tableId, colIndex) {
+  const rows = Array.from(document.querySelectorAll('#' + tableId + ' tbody tr'));
+  const values = rows.map(r => r.children[colIndex] ? r.children[colIndex].textContent.trim() : '').filter(v => v !== '');
+  if (!values.length) { toast('No data to copy in this column.', 'error'); return; }
+  try { await navigator.clipboard.writeText(values.join('\n')); toast(`Copied ${values.length} value(s).`, 'success'); }
+  catch (e) { toast('Could not copy – your browser blocked clipboard access.', 'error'); }
+}
+
+const ICON = {
+  dash:  '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  plus:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  clip:  '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12l2 2 4-4"/></svg>',
+  list:  '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  gear:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+};
+
+/* ============================= SHELL / NAV ============================= */
+const NAV = [
+  { href:'#/dashboard', label:'Dashboard', icon:'dash' },
+  { group:'Chicken Cut Parts', mark:'🍗' },
+  { href:'#/chicken/new', label:'New entry', icon:'plus' },
+  { href:'#/chicken/it', label:'IT processing', icon:'clip', badge:true },
+  { href:'#/chicken/records', label:'Records', icon:'list' },
+  { group:'Mixed Fruit BB', mark:'🍓' },
+  { off:true, label:'New entry', icon:'plus', soon:true },
+  { group:'System' },
+  { href:'#/admin', label:'Admin', icon:'gear' },
+];
+function renderNav() {
+  document.getElementById('nav').innerHTML = NAV.map(n => {
+    if (n.group) return `<div class="nav-group">${n.mark ? `<span class="mk">${n.mark}</span>` : ''}${esc(n.group)}</div>`;
+    if (n.off) return `<div class="nav-off">${ICON[n.icon]}${esc(n.label)}<span class="soon">Soon</span></div>`;
+    return `<a href="${n.href}" data-href="${n.href}">${ICON[n.icon]}${esc(n.label)}${n.badge ? `<span class="badge" id="navBadge" style="display:none"></span>` : ''}</a>`;
+  }).join('');
+}
+function toggleNav(open) { document.body.classList.toggle('nav-open', open); }
+function setActiveNav(hash) {
+  document.querySelectorAll('#nav a').forEach(a => {
+    const h = a.dataset.href;
+    a.classList.toggle('active', hash === h || (h === '#/chicken/it' && hash.startsWith('#/chicken/it')));
+  });
+}
+
+/* ============================= ROUTER ============================= */
+const ROUTES = [
+  [/^#\/dashboard$/, pageDashboard],
+  [/^#\/chicken\/new$/, pageChickenNew],
+  [/^#\/chicken\/it$/, pageChickenIT],
+  [/^#\/chicken\/it\/([\w-]+)$/, pageChickenDetail],
+  [/^#\/chicken\/records$/, pageRecords],
+  [/^#\/fruit\/new$/, pageFruitSoon],
+  [/^#\/admin$/, pageAdmin],
+];
+async function router() {
+  const hash = location.hash || '#/dashboard';
+  toggleNav(false); setActiveNav(hash); window.scrollTo(0, 0);
+  const token = ++renderToken;
+  const content = document.getElementById('content');
+  const hit = ROUTES.map(([re, fn]) => [re.exec(hash), fn]).find(([m]) => m);
+  if (!hit) { location.hash = '#/dashboard'; return; }
+  content.innerHTML = `<div class="loading">Loading…</div>`;
+  try { await hit[1](hit[0], token); }
+  catch (err) {
+    console.error(err);
+    if (token === renderToken) content.innerHTML = `<div class="card"><div class="note err">${esc(err.message)}</div><button class="btn btn-primary" onclick="router()">Try again</button></div>`;
+  }
+  refreshBadge();
+}
+const stale = (token) => token !== renderToken;
+
+/* ============================= DASHBOARD ============================= */
+async function pageDashboard(_, token) {
+  const [dash] = await Promise.all([api('dashboard'), loadItems()]);
+  if (stale(token)) return;
+  const c = dash.chicken;
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour:'numeric', hour12:false }).format(new Date()));
+  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const today = new Date().toLocaleDateString('en-GB', { timeZone: TZ, weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const pendingSub = c.pending ? `Oldest waiting ${ago(c.oldestPendingAt).replace(' ago','')}` : 'All caught up';
+
+  const recent = c.recent.length ? c.recent.map(e => `
+    <div class="list-item" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
+      <div class="li-main">
+        <div class="li-title">${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · ${esc(e.staff)} / ${esc(e.supervisor)} · ${e.cutParts.length} cut part(s)</div>
+      </div>
+      <div class="li-meta">${statusPill(e)}</div>
+    </div>`).join('') : `<div class="hint">No entries yet. Start with a new chicken cut parts entry above.</div>`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>${greet}</h1><p>${esc(today)}</p></div></div>
+
+    <h2 class="section-h">Start a new entry</h2>
+    <div class="entry-cards">
+      <a class="ticket" href="#/chicken/new">
+        <div class="stub">🍗</div>
+        <div class="body"><h3>Chicken cut parts</h3><p>Record a base product and the cut parts it was processed into.</p><span class="go">New entry ${'&rarr;'}</span></div>
+      </a>
+      <div class="ticket off" aria-disabled="true">
+        <div class="stub">🍓</div>
+        <div class="body"><h3>Mixed fruit BB</h3><p>Coming soon. This record type is still being set up.</p><span class="go">Not available yet</span></div>
+      </div>
+    </div>
+
+    <h2 class="section-h">Chicken cut parts</h2>
+    <div class="stats">
+      <div class="stat ${c.pending ? 'attn' : ''}"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div><div class="sub">${esc(pendingSub)}</div></div>
+      <div class="stat"><div class="lbl">Entries today</div><div class="big">${c.today}</div><div class="sub">Malaysia time</div></div>
+      <div class="stat"><div class="lbl">Entries this month</div><div class="big">${c.monthEntries}</div><div class="sub">${fmtQty(c.monthBaseKg)} kg base product</div></div>
+      <div class="stat"><div class="lbl">Cut yield this month</div><div class="big">${c.monthYieldPct === null ? '–' : c.monthYieldPct + '%'}</div><div class="sub">${fmtQty(c.monthCutKg)} kg of cut parts</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>Recent entries</span><a class="btn btn-ghost btn-sm" href="#/chicken/records">View all records</a></div>
+      ${recent}
+    </div>`;
+}
+function statusPill(e) {
+  return e.status === 'completed'
+    ? `<span class="pill done">${ICON.check}Processed</span>`
+    : `<span class="pill pending">${ICON.clock}Pending</span>`;
+}
+
+/* ============================= CHICKEN: NEW ENTRY ============================= */
+function resetDraft() {
+  STATE.draft = { id: genId(), staff:'', supervisor:'', basePlu:'', baseDescription:'', baseMaterial:'', baseQty:'', cutParts:[] };
+}
+async function pageChickenNew(_, token) {
+  await loadItems();
+  if (stale(token)) return;
+  if (!STATE.draft) resetDraft();
+  renderNewEntry();
+}
+function renderNewEntry() {
+  const d = STATE.draft;
+  const baseOptions = activeItems('base').map(i => `<option value="${esc(i.plu)}" ${d.basePlu === i.plu ? 'selected' : ''}>${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
+  const cutOptions = activeItems('cut').map(i => `<option value="${esc(i.plu)}">${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
+  const baseReady = d.staff.trim() && d.supervisor.trim();
+  const cutReady = baseReady && d.basePlu && Number(d.baseQty) > 0;
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>New entry · Chicken cut parts</h1><p>Record the base product and each cut part it produced.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="clearDraft()">Clear form</button></div>
+
+    <div class="card">
+      <div class="card-title"><span><span class="step">1</span>Staff and supervisor</span></div>
+      <div class="hint">Both names are needed before the base product section unlocks.</div>
+      <div class="grid2">
+        <div class="field"><label for="staffInput">Staff name</label>
+          <input id="staffInput" type="text" class="uc" autocomplete="off" value="${esc(d.staff)}" oninput="onDraftText('staff', upperize(this))"/></div>
+        <div class="field"><label for="supervisorInput">Supervisor name</label>
+          <input id="supervisorInput" type="text" class="uc" autocomplete="off" value="${esc(d.supervisor)}" oninput="onDraftText('supervisor', upperize(this))"/></div>
+      </div>
+    </div>
+
+    <div class="card gated ${baseReady ? '' : 'locked'}" id="baseCard">
+      <div class="card-title"><span><span class="step">2</span>Base product</span></div>
+      ${baseReady ? '' : '<div class="note warn" data-lock>Enter staff and supervisor names above to continue.</div>'}
+      <div class="grid3">
+        <div class="field"><label for="basePluSelect">Base product PLU</label>
+          <select id="basePluSelect" onchange="onBasePluChange(this.value)" ${baseReady ? '' : 'disabled'}><option value="">Select PLU…</option>${baseOptions}</select></div>
+        <div class="field"><label>Description</label><input type="text" readonly id="baseDescOut" value="${esc(d.baseDescription)}"/></div>
+        <div class="field"><label>Material code</label><input type="text" readonly id="baseMatOut" value="${esc(d.baseMaterial)}"/></div>
+      </div>
+      <div class="field" style="max-width:240px;"><label for="baseQtyInput">Base product quantity (kg)</label>
+        <input id="baseQtyInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${esc(d.baseQty)}" oninput="onBaseQtyInput(this.value)" ${baseReady ? '' : 'disabled'}/></div>
+    </div>
+
+    <div class="card gated ${cutReady ? '' : 'locked'}" id="cutCard">
+      <div class="card-title"><span><span class="step">3</span>Cut parts</span></div>
+      ${cutReady ? '' : '<div class="note warn" data-lock>Select a base product PLU and enter its quantity to continue.</div>'}
+      <div class="grid3">
+        <div class="field"><label for="cutPluSelect">Cut part PLU</label>
+          <select id="cutPluSelect" ${cutReady ? '' : 'disabled'}><option value="">Select PLU…</option>${cutOptions}</select></div>
+        <div class="field"><label for="cutQtyInput">Quantity (kg)</label>
+          <input id="cutQtyInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" ${cutReady ? '' : 'disabled'} onkeydown="if(event.key==='Enter'){event.preventDefault();onAddCutPart();}"/></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-primary" id="addCutBtn" onclick="onAddCutPart()" ${cutReady ? '' : 'disabled'}>+ Add cut part</button></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead>
+        <tbody id="cutPartsTableBody"></tbody></table></div>
+      <div class="summary-strip" id="summaryStrip"></div>
+      <div id="diffErrorBox" style="margin-top:12px;"></div>
+      <div class="btn-row"><button class="btn btn-primary btn-block" id="submitEntryBtn" onclick="submitEntry()">Submit entry</button></div>
+    </div>`;
+  renderCutPartsTable();
+  recalcSummary();
+}
+function clearDraft() { resetDraft(); renderNewEntry(); }
+
+function onDraftText(field, value) { STATE.draft[field] = value; updateGating(); }
+function updateGating() {
+  const d = STATE.draft;
+  const baseReady = !!(d.staff.trim() && d.supervisor.trim());
+  const cutReady = baseReady && d.basePlu && Number(d.baseQty) > 0;
+  const gate = (cardId, ready, msg, ids) => {
+    const card = document.getElementById(cardId); if (!card) return;
+    card.classList.toggle('locked', !ready);
+    ids.forEach(id => { const el = card.querySelector('#' + id); if (el) el.disabled = !ready; });
+    const hint = card.querySelector('[data-lock]');
+    if (ready && hint) hint.remove();
+    if (!ready && !hint) card.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="note warn" data-lock>${msg}</div>`);
+  };
+  gate('baseCard', baseReady, 'Enter staff and supervisor names above to continue.', ['basePluSelect', 'baseQtyInput']);
+  gate('cutCard', cutReady, 'Select a base product PLU and enter its quantity to continue.', ['cutPluSelect', 'cutQtyInput', 'addCutBtn']);
+  recalcSummary();
+}
+function onBasePluChange(plu) {
+  const item = findItem('base', plu);
+  Object.assign(STATE.draft, { basePlu: plu, baseDescription: item ? item.description : '', baseMaterial: item ? item.material : '' });
+  document.getElementById('baseDescOut').value = STATE.draft.baseDescription;
+  document.getElementById('baseMatOut').value = STATE.draft.baseMaterial;
+  updateGating();
+}
+function onBaseQtyInput(v) { STATE.draft.baseQty = v; updateGating(); }
+
+function renderCutPartsTable() {
+  const tbody = document.getElementById('cutPartsTableBody'); if (!tbody) return;
+  const cp = STATE.draft.cutParts;
+  tbody.innerHTML = cp.length ? cp.map((c, idx) => `
+    <tr><td class="mono">${esc(c.plu)}</td><td>${esc(c.description)}</td><td class="mono">${esc(c.material)}</td>
+    <td class="mono r">${fmtQty(c.qty)}</td><td class="r"><button class="btn btn-danger btn-sm" onclick="removeCutPart(${idx})">Remove</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="5">No cut parts yet. Pick a PLU, enter the weight and add it.</td></tr>`;
+}
+function onAddCutPart() {
+  const sel = document.getElementById('cutPluSelect'), qtyInput = document.getElementById('cutQtyInput');
+  const plu = sel.value, qty = Number(qtyInput.value);
+  if (!plu) { toast('Select a cut part PLU first.', 'error'); return; }
+  if (!qty || qty <= 0) { toast('Enter a valid quantity.', 'error'); return; }
+  const item = findItem('cut', plu);
+  const existing = STATE.draft.cutParts.find(c => c.plu === plu);
+  if (existing) existing.qty = round2(existing.qty + qty);
+  else STATE.draft.cutParts.push({ plu, description: item.description, material: item.material, qty: round2(qty) });
+  sel.value = ''; qtyInput.value = ''; sel.focus();
+  renderCutPartsTable(); recalcSummary();
+}
+function removeCutPart(idx) { STATE.draft.cutParts.splice(idx, 1); renderCutPartsTable(); recalcSummary(); }
+
+function recalcSummary() {
+  const strip = document.getElementById('summaryStrip'); if (!strip) return;
+  const d = STATE.draft;
+  const baseQty = Number(d.baseQty) || 0;
+  const totalCut = round2(d.cutParts.reduce((s, c) => s + Number(c.qty), 0));
+  const diff = round2(baseQty - totalCut);
+  strip.innerHTML = `
+    <div class="summary-box"><div class="lbl">Base product qty (kg)</div><div class="val">${fmtQty(baseQty)}</div></div>
+    <div class="summary-box"><div class="lbl">Total cut parts qty (kg)</div><div class="val">${fmtQty(totalCut)}</div></div>
+    <div class="summary-box ${diff < 0 ? 'bad' : ''}"><div class="lbl">Difference (kg)</div><div class="val">${fmtQty(diff)}</div></div>`;
+  document.getElementById('diffErrorBox').innerHTML = diff < 0
+    ? `<div class="note err">Negative weight difference. Check the quantities: cut parts cannot weigh more than the base product.</div>` : '';
+  const valid = d.staff.trim() && d.supervisor.trim() && d.basePlu && baseQty > 0 && d.cutParts.length > 0 && diff >= 0;
+  document.getElementById('submitEntryBtn').disabled = !valid;
+}
+
+async function submitEntry() {
+  const d = STATE.draft;
+  const btn = document.getElementById('submitEntryBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await api('entries', { method: 'POST', body: {
+      id: d.id, staff: d.staff, supervisor: d.supervisor, basePlu: d.basePlu, baseQty: Number(d.baseQty),
+      cutParts: d.cutParts.map(c => ({ plu: c.plu, qty: c.qty })),
+    }});
+  } catch (err) {
+    toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Submit entry'; recalcSummary(); return;
+  }
+  toast('Entry submitted.', 'success');
+  resetDraft(); renderNewEntry(); refreshBadge();
+  document.getElementById('staffInput').focus();
+}
+
+/* ============================= CHICKEN: IT PROCESSING ============================= */
+async function pageChickenIT(_, token) {
+  const [p, c] = await Promise.all([api('entries?status=pending&limit=200'), api('entries?status=completed&limit=8'), loadItems()]);
+  if (stale(token)) return;
+  const pending = p.entries.slice().reverse();   // oldest first - process in order
+  const pendingHTML = pending.length ? pending.map(e => `
+    <div class="list-item" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
+      <div class="li-main"><div class="li-title">${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · Staff: ${esc(e.staff)} · Supervisor: ${esc(e.supervisor)} · ${e.cutParts.length} cut part(s)</div></div>
+      <div class="li-meta">${statusPill(e)}<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); printById('${esc(e.id)}')">Print</button></div>
+    </div>`).join('') : `<div class="hint">Nothing waiting. All submissions have been processed.</div>`;
+  const doneHTML = c.entries.length ? c.entries.map(e => `
+    <div class="list-item" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
+      <div class="li-main"><div class="li-title">${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · Keyed in ${esc(fmtStamp(e.keyedInAt) || '-')} by ${esc(e.keyedInBy || '-')}</div></div>
+      <div class="li-meta">${statusPill(e)}<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); printById('${esc(e.id)}')">Print</button></div>
+    </div>`).join('') : `<div class="hint">No processed entries yet.</div>`;
+  STATE.listCache = [...p.entries, ...c.entries];
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>IT processing · Chicken cut parts</h1><p>Open an entry to correct quantities, calculate values and key in the material documents.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="router()">Refresh</button></div>
+    <div class="card"><div class="card-title">Waiting for processing (${pending.length})</div>${pendingHTML}</div>
+    <div class="card"><div class="card-title"><span>Recently processed</span><a class="btn btn-ghost btn-sm" href="#/chicken/records">All records</a></div>${doneHTML}</div>`;
+}
+function printById(id) {
+  const e = (STATE.it && STATE.it.id === id) ? STATE.it : (STATE.listCache || []).find(x => x.id === id);
+  if (e) printEntry(e);
+}
+
+async function pageChickenDetail(m, token) {
+  const [res] = await Promise.all([api('entries?id=' + encodeURIComponent(m[1])), loadItems()]);
+  if (stale(token)) return;
+  STATE.it = JSON.parse(JSON.stringify(res.entry));
+  STATE.itCalc = STATE.it.calculated || null;
+  STATE.itForm = {
+    matA: STATE.it.materialDocA || '', matB: STATE.it.materialDocB || '', wd: STATE.it.weightDiscrepancyDoc || '',
+    by: STATE.it.keyedInBy || '', sys: STATE.it.systemAmount != null ? String(STATE.it.systemAmount) : '',
+  };
+  renderITDetail();
+}
+
+function renderITDetail() {
+  const e = STATE.it, F = STATE.itForm;
+  const done = e.status === 'completed';
+  const cutOptions = activeItems('cut').map(i => `<option value="${esc(i.plu)}">${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
+  const cutRows = e.cutParts.length ? e.cutParts.map((c, idx) => `
+    <tr><td class="mono">${esc(c.plu)}</td><td>${esc(c.description)}</td><td class="mono">${esc(c.material)}</td>
+    <td class="mono r">${done ? fmtQty(c.qty) : `<input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onEditCutQtyIT(${idx}, this.value)"/>`}</td>
+    <td class="r">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeCutPartIT(${idx})">Remove</button>`}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="5">No cut parts. Add at least one.</td></tr>`;
+
+  document.getElementById('content').innerHTML = `
+    <a class="back-link" href="${done ? '#/chicken/records' : '#/chicken/it'}">&larr; Back to ${done ? 'records' : 'IT processing'}</a>
+    <div class="page-head"><div><h1>${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></h1><p>${esc(fmtStamp(e.createdAt))}</p></div>${statusPill(e)}</div>
+
+    <div class="card">
+      <div class="card-title">Submission details</div>
+      <div class="grid3">
+        <div class="field"><label>Date</label><input type="text" readonly value="${esc(fmtStamp(e.createdAt))}"/></div>
+        <div class="field"><label>Staff</label><input type="text" readonly value="${esc(e.staff)}"/></div>
+        <div class="field"><label>Supervisor</label><input type="text" readonly value="${esc(e.supervisor)}"/></div>
+      </div>
+      <div class="divider-label">Base product</div>
+      <div class="grid3">
+        <div class="field"><label>PLU</label><input type="text" readonly value="${esc(e.base.plu)}"/></div>
+        <div class="field"><label>Description</label><input type="text" readonly value="${esc(e.base.description)}"/></div>
+        <div class="field"><label>Material</label><input type="text" readonly value="${esc(e.base.material)}"/></div>
+      </div>
+      <div class="field" style="max-width:240px;"><label>Base quantity (kg)</label>
+        ${done ? `<input type="text" readonly value="${fmtQty(e.base.qty)}"/>` : `<input type="number" inputmode="decimal" min="0" step="0.01" value="${esc(e.base.qty)}" oninput="onEditBaseQtyIT(this.value)"/>`}</div>
+      ${done ? '' : `<div class="hint">Changes update the total and difference live. They are saved when you press Save corrections or Submit.</div>`}
+
+      <div class="divider-label">Cut parts</div>
+      <div class="table-wrap"><table><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead><tbody>${cutRows}</tbody></table></div>
+      ${done ? '' : `
+      <div class="grid3">
+        <div class="field"><label for="itAddCutPluSelect">Add cut part – PLU</label><select id="itAddCutPluSelect"><option value="">Select PLU…</option>${cutOptions}</select></div>
+        <div class="field"><label for="itAddCutQtyInput">Quantity (kg)</label><input id="itAddCutQtyInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"/></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="onAddCutPartIT()">+ Add cut part</button></div>
+      </div>`}
+      <div class="summary-strip" id="itSummaryStrip">${itSummaryHTML(e)}</div>
+      ${done ? '' : `<div class="btn-row"><button class="btn btn-outline" onclick="saveITCorrections()">Save corrections</button></div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Valuation</div>
+      <div class="grid3">
+        <div class="field"><label for="sysAmountInput">System amount</label>
+          <input id="sysAmountInput" type="number" step="0.01" inputmode="decimal" placeholder="0.00" value="${esc(F.sys)}" oninput="STATE.itForm.sys=this.value" ${done ? 'disabled' : ''}/></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-outline" onclick="calculateEntry()" ${done ? 'disabled' : ''}>Calculate</button></div>
+      </div>
+      <div id="calcArea">${calcAreaHTML()}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Material documents and sign-off</div>
+      <div class="grid2">
+        <div class="field"><label for="matDocAInput">Material document A</label><input id="matDocAInput" class="uc" type="text" placeholder="e.g. 4900111222" value="${esc(F.matA)}" oninput="STATE.itForm.matA=upperize(this)" ${done ? 'disabled' : ''}/></div>
+        <div class="field"><label for="matDocBInput">Material document B</label><input id="matDocBInput" class="uc" type="text" placeholder="e.g. 1000011122" value="${esc(F.matB)}" oninput="STATE.itForm.matB=upperize(this)" ${done ? 'disabled' : ''}/></div>
+      </div>
+      <div class="grid2" id="itWdContainer">${itWdHTML(e, done)}</div>
+      <div class="field" style="max-width:300px;"><label for="keyedByInput">Key in by</label><input id="keyedByInput" class="uc" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.itForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
+      <div class="btn-row">
+        ${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="submitItBtn" onclick="submitITEntry()">Submit</button>`}
+        <button class="btn btn-outline" onclick="printEntry(STATE.it)">Print</button>
+      </div>
+      ${done ? '' : `<div class="hint" style="margin-top:12px;">You can print at any time. Fields not filled in yet print blank.</div>`}
+    </div>`;
+}
+function itSummaryHTML(e) {
+  return `<div class="summary-box"><div class="lbl">Total cut qty (kg)</div><div class="val">${fmtQty(e.totalCutQty)}</div></div>
+          <div class="summary-box ${e.difference < 0 ? 'bad' : ''}"><div class="lbl">Difference (kg)</div><div class="val">${e.difference === 0 ? '-' : fmtQty(e.difference)}</div></div>`;
+}
+function itWdHTML(e, done) {
+  return `<div class="field"><label>Weight discrepancy (kg)</label><input type="text" readonly value="${e.difference === 0 ? '' : fmtQty(e.difference)}"/></div>
+    ${e.difference !== 0 ? `<div class="field"><label for="wdDocInput">Weight discrepancy material doc</label><input id="wdDocInput" class="uc" type="text" placeholder="e.g. 4900333444" value="${esc(STATE.itForm.wd)}" oninput="STATE.itForm.wd=upperize(this)" ${done ? 'disabled' : ''}/></div>` : ''}`;
+}
+function calcAreaHTML() {
+  const c = STATE.itCalc;
+  if (!c) return `<div class="hint">Enter the system amount and press Calculate to see end values.${STATE.it.status === 'completed' ? ' (This entry was imported without a stored valuation.)' : ''}</div>`;
+  return `<div class="hint">Click a column header to copy every value in that column.</div>
+    <div class="table-wrap"><table id="valuationTable">
+      <thead><tr>${['PLU','Description','Material','Qty (kg)','End value'].map((h, i) => `<th class="copy-col ${i > 2 ? 'r' : ''}" onclick="copyColumn('valuationTable',${i})" title="Copy ${h} column">${h}</th>`).join('')}</tr></thead>
+      <tbody>${c.results.map(r => `<tr><td class="mono">${esc(r.plu)}</td><td>${esc(r.description)}</td><td class="mono">${esc(r.material)}</td><td class="mono r">${fmtQty(r.qty)}</td><td class="mono r">${fmtMoney(r.endValue)}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+// Any quantity change makes an earlier calculation stale - clear it so it can't be submitted by mistake.
+function invalidateCalc() {
+  if (!STATE.itCalc) return;
+  STATE.itCalc = null;
+  const a = document.getElementById('calcArea'); if (a) a.innerHTML = calcAreaHTML();
+}
+function recalcITSummary() {
+  const e = STATE.it;
+  e.totalCutQty = round2(e.cutParts.reduce((s, c) => s + Number(c.qty || 0), 0));
+  e.difference = round2((Number(e.base.qty) || 0) - e.totalCutQty);
+  const strip = document.getElementById('itSummaryStrip'); if (strip) strip.innerHTML = itSummaryHTML(e);
+  const wd = document.getElementById('itWdContainer'); if (wd) wd.innerHTML = itWdHTML(e, false);
+  invalidateCalc();
+}
+function onEditBaseQtyIT(v) { STATE.it.base.qty = Number(v) || 0; recalcITSummary(); }
+function onEditCutQtyIT(idx, v) { STATE.it.cutParts[idx].qty = Number(v) || 0; recalcITSummary(); }
+function removeCutPartIT(idx) { STATE.it.cutParts.splice(idx, 1); recalcITSummary(); renderITDetail(); }
+function onAddCutPartIT() {
+  const e = STATE.it;
+  const plu = document.getElementById('itAddCutPluSelect').value, qty = Number(document.getElementById('itAddCutQtyInput').value);
+  if (!plu) { toast('Select a cut part PLU first.', 'error'); return; }
+  if (!qty || qty <= 0) { toast('Enter a valid quantity.', 'error'); return; }
+  const item = findItem('cut', plu);
+  const existing = e.cutParts.find(c => c.plu === plu);
+  if (existing) existing.qty = round2(Number(existing.qty) + qty);
+  else e.cutParts.push({ plu, description: item.description, material: item.material, qty: round2(qty) });
+  recalcITSummary(); renderITDetail();
+}
+
+function itPayload() {
+  const e = STATE.it;
+  return { baseQty: Number(e.base.qty), cutParts: e.cutParts.map(c => ({ plu: c.plu, qty: Number(c.qty) })) };
+}
+function checkITQuantities() {
+  const e = STATE.it;
+  if (!e.cutParts.length) { toast('At least one cut part is required.', 'error'); return false; }
+  if (e.cutParts.some(c => !(Number(c.qty) > 0)) || !(Number(e.base.qty) > 0)) { toast('All quantities must be greater than 0.', 'error'); return false; }
+  if (e.difference < 0) { showModal('Negative weight difference', 'Total cut parts quantity cannot exceed the base product quantity. Please check the quantities.'); return false; }
+  return true;
+}
+async function saveITCorrections() {
+  if (!checkITQuantities()) return;
+  try { await api('entries?id=' + encodeURIComponent(STATE.it.id), { method: 'PATCH', body: itPayload() }); }
+  catch (err) { toast(err.message, 'error'); return; }
+  toast('Corrections saved.', 'success');
+}
+
+// Same valuation logic as the old app.
+function calculateEntry() {
+  const e = STATE.it;
+  if (STATE.itForm.sys === '' || !Number.isFinite(Number(STATE.itForm.sys))) { toast('Enter the system amount first.', 'error'); return; }
+  if (!checkITQuantities()) return;
+  const sysAmt = Number(STATE.itForm.sys);
+  const baseCost = findCost('base', e.base.plu);
+  const itemCount = e.cutParts.length || 1;
+  const totalCutQty = e.cutParts.reduce((s, c) => s + Number(c.qty), 0);
+  const product1 = baseCost * totalCutQty;
+  const raw = e.cutParts.map(c => { const cost = findCost('cut', c.plu); return { plu:c.plu, description:c.description, material:c.material, qty:c.qty, cost, product: cost * c.qty }; });
+  const rawTotal = raw.reduce((s, r) => s + r.product, 0);
+  const diff1 = rawTotal - product1, alloc1 = diff1 / itemCount;
+  const diff2 = product1 - sysAmt, alloc2 = diff2 / itemCount;
+  const results = raw.map(r => ({ plu:r.plu, description:r.description, material:r.material, qty:r.qty, endValue: (r.product - alloc1) - alloc2 }));
+  STATE.itCalc = { product1, rawTotal, diff1, alloc1, diff2, alloc2, systemAmount: sysAmt, results };
+  document.getElementById('calcArea').innerHTML = calcAreaHTML();
+  toast('Calculation complete.', 'success');
+}
+
+async function submitITEntry() {
+  const e = STATE.it, F = STATE.itForm;
+  if (!checkITQuantities()) return;
+  if (!STATE.itCalc) { toast('Calculate before submitting.', 'error'); return; }
+  if (!F.matA.trim() || !F.matB.trim()) { toast('Both material document fields are required.', 'error'); return; }
+  if (e.difference !== 0 && !F.wd.trim()) { toast('Weight discrepancy material document is required.', 'error'); return; }
+  if (!F.by.trim()) { toast('Enter who is keying this in.', 'error'); return; }
+  const btn = document.getElementById('submitItBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await api('entries?id=' + encodeURIComponent(e.id), { method: 'PATCH', body: { ...itPayload(), complete: {
+      systemAmount: STATE.itCalc.systemAmount, calculated: STATE.itCalc,
+      materialDocA: F.matA, materialDocB: F.matB, weightDiscrepancyDoc: F.wd, keyedInBy: F.by } } });
+    STATE.it = res.entry; STATE.itCalc = res.entry.calculated;
+  } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Submit'; return; }
+  toast('Entry processed.', 'success');
+  refreshBadge(); renderITDetail();
+}
+
+/* ============================= PRINT ============================= */
+function printEntry(src) {
+  let e = src;
+  // Unsubmitted entry: print what is currently typed in the form.
+  if (STATE.it && STATE.it.id === src.id && src.status !== 'completed') {
+    const F = STATE.itForm;
+    e = { ...src, materialDocA: F.matA, materialDocB: F.matB, weightDiscrepancyDoc: F.wd, keyedInBy: F.by };
+  }
+  const rows = e.cutParts.map((c, idx) => `<tr>${idx === 0
+    ? `<td>${esc(e.base.material)}</td><td>${esc(e.base.plu)}</td><td>${esc(e.base.description)}</td><td>${fmtQty(e.base.qty)}</td>`
+    : '<td></td><td></td><td></td><td></td>'}
+    <td>${esc(c.material)}</td><td>${esc(c.plu)}</td><td>${esc(c.description)}</td><td>${fmtQty(c.qty)}</td></tr>`).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-title">CHICKEN PROCESSING FORM</div>
+    <div class="print-sub">OUTLET: SEGSHBN</div>
+    <div class="print-meta"><div><strong>Date:</strong> ${esc(fmtStamp(e.createdAt))}</div><div><strong>Staff:</strong> ${esc(e.staff)}</div><div><strong>Supervisor:</strong> ${esc(e.supervisor)}</div></div>
+    <table class="print-table">
+      <thead><tr><th>Base Material</th><th>Base PLU</th><th>Base Description</th><th>Base Qty</th><th>Cut Material</th><th>Cut PLU</th><th>Cut Description</th><th>Cut Qty</th></tr></thead>
+      <tbody>${rows}
+        <tr><td colspan="7" style="text-align:right;"><strong>Total Weight Cut Part</strong></td><td><strong>${fmtQty(e.totalCutQty)}</strong></td></tr>
+        <tr><td colspan="7" style="text-align:right;"><strong>Weight Discrepancy</strong></td><td><strong>${e.difference === 0 ? '-' : fmtQty(e.difference)}</strong></td></tr>
+      </tbody></table>
+    <div class="print-footer">
+      Material Doc: <strong>${esc([e.materialDocA, e.materialDocB].filter(Boolean).join(', '))}</strong><br/>
+      Weight discrepancy: <strong>${esc(e.difference === 0 ? '-' : (e.weightDiscrepancyDoc || ''))}</strong><br/>
+      Key in by: <strong>${esc(e.keyedInBy || '')}</strong> &nbsp;&nbsp; Date: <strong>${esc(fmtStamp(e.keyedInAt))}</strong>
+    </div>
+    <div class="print-operation">
+      <div class="op-title">Operation:</div>
+      <div class="op-row">
+        <div class="op-col"><div class="op-line"></div><div>Staff: <strong>${esc(e.staff)}</strong></div></div>
+        <div class="op-col"><div class="op-line"></div><div>Supervisor: <strong>${esc(e.supervisor)}</strong></div></div>
+      </div>
+      <div class="op-row op-row-labels"><div class="op-col">Review by:</div><div class="op-col">Key in by:</div></div>
+      <div class="op-row"><div class="op-col"><div class="op-line op-line-tall"></div></div>
+        <div class="op-col"><div class="op-line op-line-tall"></div><div>Name: <strong>${esc(e.keyedInBy || '')}</strong></div></div></div>
+    </div>`;
+  window.print();
+}
+
+/* ============================= CHICKEN: RECORDS ============================= */
+async function pageRecords(_, token) {
+  const R = STATE.records;
+  if (!R.month) R.month = monthKey(Date.now());
+  await loadRecords(token);
+}
+async function loadRecords(token) {
+  const R = STATE.records;
+  const res = await api(`entries?month=${R.month}&limit=2000`);
+  if (token !== undefined && stale(token)) return;
+  R.entries = res.entries.slice().reverse();      // chronological, like the old monthly tab
+  STATE.listCache = R.entries;
+  renderRecords();
+}
+function recordsFiltered() {
+  const R = STATE.records, q = R.q.trim().toLowerCase();
+  return R.entries.filter(e => (R.status === 'all' || e.status === R.status) && (!q ||
+    [e.staff, e.supervisor, e.base.description, e.base.plu, e.materialDocA, e.materialDocB, e.weightDiscrepancyDoc, e.keyedInBy, ...e.cutParts.map(c => c.description + ' ' + c.plu)]
+      .join(' ').toLowerCase().includes(q)));
+}
+function renderRecords() {
+  const R = STATE.records;
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>Records · Chicken cut parts</h1><p>Every submission for the selected month, oldest first.</p></div>
+      <button class="btn btn-primary" onclick="exportRecordsCsv()">Export CSV</button></div>
+    <div class="card">
+      <div class="tools">
+        <div class="field"><label for="recMonth">Month</label><input id="recMonth" type="month" value="${esc(R.month)}" onchange="onRecMonth(this.value)"/></div>
+        <div class="field"><label for="recStatus">Status</label><select id="recStatus" onchange="STATE.records.status=this.value;renderRecordsTable()">
+          ${[['all','All'],['pending','Pending'],['completed','Processed']].map(([v, l]) => `<option value="${v}" ${R.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field" style="flex:1;min-width:200px;"><label for="recSearch">Search</label><input id="recSearch" type="search" placeholder="Staff, PLU, document, key in by…" value="${esc(R.q)}" oninput="STATE.records.q=this.value;renderRecordsTable()"/></div>
+      </div>
+      <div id="recSummary" class="hint"></div>
+      <div class="table-wrap"><table id="recTable">
+        <thead><tr><th>Date</th><th>Staff</th><th>Supervisor</th><th>Base product</th><th class="r">Base kg</th><th>Cut parts</th><th class="r">Cut kg</th><th class="r">Diff kg</th><th>Material docs</th><th>Key in</th><th>Status</th></tr></thead>
+        <tbody id="recBody"></tbody></table></div>
+    </div>`;
+  renderRecordsTable();
+}
+function renderRecordsTable() {
+  const list = recordsFiltered();
+  const body = document.getElementById('recBody'); if (!body) return;
+  const totalBase = round2(list.reduce((s, e) => s + e.base.qty, 0)), totalCut = round2(list.reduce((s, e) => s + e.totalCutQty, 0));
+  document.getElementById('recSummary').textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'} in ${monthLabel(STATE.records.month)} · ${fmtQty(totalBase)} kg base · ${fmtQty(totalCut)} kg cut`;
+  body.innerHTML = list.length ? list.map(e => `
+    <tr class="clickable" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
+      <td class="mono" style="white-space:nowrap">${esc(fmtStamp(e.createdAt))}</td><td>${esc(e.staff)}</td><td>${esc(e.supervisor)}</td>
+      <td>${esc(e.base.description)}<div class="mono" style="color:var(--ink-3);font-size:12px">${esc(e.base.plu)}</div></td>
+      <td class="mono r">${fmtQty(e.base.qty)}</td>
+      <td>${e.cutParts.map(c => `<div>${esc(c.description)} <span class="mono" style="color:var(--ink-3)">${fmtQty(c.qty)}</span></div>`).join('')}</td>
+      <td class="mono r">${fmtQty(e.totalCutQty)}</td><td class="mono r">${e.difference === 0 ? '-' : fmtQty(e.difference)}</td>
+      <td class="mono">${esc([e.materialDocA, e.materialDocB, e.weightDiscrepancyDoc].filter(Boolean).join(' / '))}</td>
+      <td>${e.status === 'completed' ? esc(e.keyedInBy) + `<div class="mono" style="color:var(--ink-3);font-size:12px">${esc(fmtStamp(e.keyedInAt))}</div>` : ''}</td>
+      <td>${statusPill(e)}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="11">No entries match. Try another month or clear the search.</td></tr>`;
+}
+async function onRecMonth(v) {
+  if (!v) return;
+  STATE.records.month = v;
+  try { await loadRecords(); } catch (err) { toast(err.message, 'error'); }
+}
+
+// Same column layout as the old Google Sheet tabs.
+function exportRecordsCsv() {
+  const list = recordsFiltered();
+  if (!list.length) { toast('Nothing to export.', 'error'); return; }
+  const H = ['Date','Staff','Supervisor','Base Product Material','Base Product PLU Code','Base Product Description','Base Product Quantity','Cut Part Material','Cut Part PLU Code','Cut Part Description','Cut Part Quantity','Difference Quantity','Material Document A','Material Document B','Weight Discrepancy Document','Key By','Date Key In','Entry ID'];
+  const out = [H];
+  list.forEach(e => {
+    e.cutParts.forEach((c, i) => out.push(i === 0
+      ? [fmtStamp(e.createdAt), e.staff, e.supervisor, e.base.material, e.base.plu, e.base.description, e.base.qty, c.material, c.plu, c.description, c.qty, '', '', '', '', '', '', e.id]
+      : ['', '', '', '', '', '', '', c.material, c.plu, c.description, c.qty, '', '', '', '', '', '', e.id]));
+    out.push(['', '', '', '', '', 'Total Weight Cut Part:', '', '', '', '', e.totalCutQty, e.difference, e.materialDocA, e.materialDocB, e.weightDiscrepancyDoc, e.keyedInBy, fmtStamp(e.keyedInAt), e.id]);
+  });
+  const cell = (v) => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const csv = '﻿' + out.map(r => r.map(cell).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `Chicken Cut Parts ${STATE.records.month}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ============================= MIXED FRUIT (placeholder) ============================= */
+async function pageFruitSoon() {
+  document.getElementById('content').innerHTML = `<div class="card"><div class="card-title">Mixed fruit BB</div>
+    <div class="hint">This record type is not available yet.</div><a class="btn btn-primary" href="#/dashboard">Back to dashboard</a></div>`;
+}
+
+/* ============================= ADMIN ============================= */
+async function pageAdmin(_, token) {
+  await loadItems();
+  if (stale(token)) return;
+  renderAdmin();
+}
+function isAdmin() { return !!sessionStorage.getItem('fprs:admin'); }
+function renderAdmin() {
+  if (!isAdmin()) {
+    document.getElementById('content').innerHTML = `
+      <div class="login-wrap"><div class="card">
+        <div class="card-title">Admin access</div>
+        <div class="field"><label for="adminPw">Password</label><input id="adminPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') tryAdminLogin();"/></div>
+        <button class="btn btn-primary btn-block" onclick="tryAdminLogin()">Unlock</button>
+      </div></div>`;
+    return;
+  }
+  STATE.admin = { base: ITEMS.base.map(i => ({ ...i })), cut: ITEMS.cut.map(i => ({ ...i })) };
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>Admin</h1><p>PLU masterlist and costs for chicken cut parts.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="adminLock()">Lock admin</button></div>
+    ${['base','cut'].map(t => `
+    <div class="card"><div class="card-title">${t === 'base' ? 'Base products' : 'Cut parts'}</div>
+      <div class="table-wrap"><table><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
+      <tbody id="admin-${t}"></tbody></table></div></div>`).join('')}
+    <div class="card"><div class="card-title">Add new item</div>
+      <div class="grid3">
+        <div class="field"><label for="newItemType">List</label><select id="newItemType"><option value="base">Base product</option><option value="cut">Cut part</option></select></div>
+        <div class="field"><label for="newItemPlu">PLU code</label><input id="newItemPlu" type="text" placeholder="e.g. 50099"/></div>
+        <div class="field"><label for="newItemMaterial">Material code</label><input id="newItemMaterial" type="text" placeholder="e.g. 10099999"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="newItemDesc">Description</label><input id="newItemDesc" class="uc" type="text" placeholder="e.g. FRESH CHICKEN LIVER" oninput="upperize(this)"/></div>
+        <div class="field"><label for="newItemCost">Cost</label><input id="newItemCost" type="number" step="0.01" placeholder="0.00"/></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="addAdminItem()">+ Add item</button></div>
+    </div>`;
+  renderAdminTable('base'); renderAdminTable('cut');
+}
+function renderAdminTable(type) {
+  const body = document.getElementById('admin-' + type);
+  const list = STATE.admin[type];
+  body.innerHTML = list.length ? list.map((i, idx) => `
+    <tr style="${i.active ? '' : 'color:var(--ink-3)'}"><td class="mono">${esc(i.plu)}</td><td>${esc(i.description)}</td><td class="mono">${esc(i.material)}</td>
+    <td class="r"><input class="inline-input" type="number" step="0.01" value="${esc(i.cost)}" aria-label="Cost for ${esc(i.description)}" oninput="STATE.admin['${type}'][${idx}].cost=this.value"/></td>
+    <td>${i.active ? '<span class="pill done">' + ICON.check + 'Active</span>' : '<span class="pill pending">Hidden</span>'}</td>
+    <td class="r" style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="saveItemCost('${type}', ${idx})">Save cost</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleItem('${type}', ${idx})">${i.active ? 'Hide' : 'Show'}</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="6">No items yet.</td></tr>`;
+}
+function adminErr(err) {
+  if (/password/i.test(err.message)) { sessionStorage.removeItem('fprs:admin'); renderAdmin(); }
+  toast(err.message, 'error');
+}
+async function tryAdminLogin() {
+  const pw = document.getElementById('adminPw').value;
+  try { await api('admin-login', { method: 'POST', body: { password: pw } }); }
+  catch (err) { toast(err.message, 'error'); return; }
+  sessionStorage.setItem('fprs:admin', pw); renderAdmin();
+}
+function adminLock() { sessionStorage.removeItem('fprs:admin'); renderAdmin(); }
+async function saveItemCost(type, idx) {
+  const i = STATE.admin[type][idx], cost = Number(i.cost);
+  if (!Number.isFinite(cost) || cost < 0) { toast('Enter a valid cost.', 'error'); return; }
+  try { await api('items', { method: 'PATCH', admin: true, body: { type, plu: i.plu, cost } }); }
+  catch (err) { adminErr(err); return; }
+  toast(`Cost saved for ${i.description}.`, 'success'); await loadItems();
+}
+async function toggleItem(type, idx) {
+  const i = STATE.admin[type][idx];
+  try { await api('items', { method: 'PATCH', admin: true, body: { type, plu: i.plu, active: !i.active } }); }
+  catch (err) { adminErr(err); return; }
+  await loadItems(); renderAdmin();
+  toast(i.active ? `${i.description} hidden from new entries.` : `${i.description} is available again.`, 'success');
+}
+async function addAdminItem() {
+  const g = (id) => document.getElementById(id).value.trim();
+  const body = { type: g('newItemType'), plu: g('newItemPlu'), material: g('newItemMaterial'), description: g('newItemDesc'), cost: Number(g('newItemCost')) };
+  if (!body.plu || !body.material || !body.description || !body.cost) { toast('Fill in every field for the new item.', 'error'); return; }
+  try { await api('items', { method: 'POST', admin: true, body }); }
+  catch (err) { adminErr(err); return; }
+  toast('Item added.', 'success'); await loadItems(); renderAdmin();
+}
+
+/* ============================= START ============================= */
+renderNav();
+window.addEventListener('hashchange', router);
+router();
+</script>
+</body>
+</html>

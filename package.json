@@ -1,0 +1,14 @@
+{
+  "name": "fprs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SHBN Fresh Processing Records System (FPRS)",
+  "type": "module",
+  "scripts": {
+    "import:chicken": "node scripts/import-chicken-csv.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.1"
+  }
+}
