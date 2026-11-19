@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#241619" />
+<meta name="mobile-web-app-capable" content="yes" />
 <title>SHBN – Fresh Processing Records System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,7 +90,10 @@ a{color:var(--primary);}
 .hint{font-size:13px;color:var(--ink-2);margin:-6px 0 14px;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-@media (max-width:700px){.grid2,.grid3{grid-template-columns:1fr;}}
+@media (max-width:700px){.grid2,.grid3{grid-template-columns:minmax(0,1fr);}}
+.field{min-width:0;}
+.field select,.field input{max-width:100%;}
+.field select{text-overflow:ellipsis;}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
 .field label{font-size:13px;font-weight:500;color:var(--ink-2);}
 .field input,.field select,.inline-input{padding:9px 12px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;color:var(--ink);outline:none;transition:border-color .12s, box-shadow .12s;}
@@ -212,6 +217,49 @@ a.ticket:hover{border-color:var(--primary);transform:translateY(-2px);}
   .op-col{flex:1;text-align:center;}
   .op-line{border-bottom:1px solid #333;height:1px;width:65%;margin:0 auto 8px;}
   .op-line-tall{margin-top:50px;}
+}
+
+/* ---------- mobile / PDA ---------- */
+html{-webkit-text-size-adjust:100%;}
+body{-webkit-tap-highlight-color:transparent;overflow-x:hidden;}
+.sub-mono{color:var(--ink-3);font-size:12px;}
+@media (max-width:900px){
+  body.nav-open{overflow:hidden;}
+  .topbar-m{padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top));}
+  .topbar-m button{width:44px;height:44px;}
+  .nav a,.nav .nav-off{padding:13px 12px;}
+  .page{padding:16px 12px calc(60px + env(safe-area-inset-bottom));}
+  .page-head h1{font-size:20px;}
+  .card{padding:16px 14px;}
+  .field input,.field select,.inline-input{min-height:44px;font-size:16px;}
+  .inline-input{width:110px;}
+  .btn{min-height:44px;padding:10px 16px;}
+  .btn-sm{min-height:38px;}
+  .stat .big{font-size:26px;}
+  .stat{padding:14px;}
+  .summary-box{min-width:30%;padding:8px 10px;}
+  .summary-box .val{font-size:18px;}
+  .tools .field{flex:1 1 100%;}
+  .ticket{grid-template-columns:64px 1fr;}
+  .ticket .body{padding:14px;}
+  #toastRoot{left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));}
+  .toast{max-width:none;}
+  .list-item{padding:12px;}
+}
+@media (max-width:640px){
+  .stats{grid-template-columns:1fr 1fr;gap:10px;}
+  .table-wrap:has(table.rt){border:none;overflow:visible;}
+  table.rt,table.rt tbody,table.rt tr,table.rt td{display:block;width:100%;}
+  table.rt thead{display:none;}
+  table.rt tr{border:1px solid var(--line);border-radius:9px;padding:6px 4px;margin-bottom:10px;background:#fff;}
+  table.rt tr.empty-row{border:none;}
+  table.rt td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;padding:5px 10px;text-align:right;}
+  table.rt td::before{font-family:'IBM Plex Sans',system-ui,sans-serif;content:attr(data-label);color:var(--ink-2);font-weight:500;text-align:left;flex:none;font-size:13px;}
+  table.rt td[data-label=""]{justify-content:flex-end;}
+  table.rt td[data-label=""]::before{display:none;}
+  table.rt td.empty,table.rt .empty-row td{display:block;text-align:center;}
+  table.rt .empty-row td::before{display:none;}
+  table.rt tr.clickable:active{background:var(--surface-alt);}
 }
 </style>
 </head>
@@ -462,9 +510,9 @@ function renderNewEntry() {
       <div class="hint">Both names are needed before the base product section unlocks.</div>
       <div class="grid2">
         <div class="field"><label for="staffInput">Staff name</label>
-          <input id="staffInput" type="text" class="uc" autocomplete="off" value="${esc(d.staff)}" oninput="onDraftText('staff', upperize(this))"/></div>
+          <input id="staffInput" type="text" class="uc" autocapitalize="characters" spellcheck="false" autocomplete="off" value="${esc(d.staff)}" oninput="onDraftText('staff', upperize(this))"/></div>
         <div class="field"><label for="supervisorInput">Supervisor name</label>
-          <input id="supervisorInput" type="text" class="uc" autocomplete="off" value="${esc(d.supervisor)}" oninput="onDraftText('supervisor', upperize(this))"/></div>
+          <input id="supervisorInput" type="text" class="uc" autocapitalize="characters" spellcheck="false" autocomplete="off" value="${esc(d.supervisor)}" oninput="onDraftText('supervisor', upperize(this))"/></div>
       </div>
     </div>
 
@@ -491,7 +539,7 @@ function renderNewEntry() {
           <input id="cutQtyInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" ${cutReady ? '' : 'disabled'} onkeydown="if(event.key==='Enter'){event.preventDefault();onAddCutPart();}"/></div>
         <div class="field"><label>&nbsp;</label><button class="btn btn-primary" id="addCutBtn" onclick="onAddCutPart()" ${cutReady ? '' : 'disabled'}>+ Add cut part</button></div>
       </div>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="rt">
         <thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead>
         <tbody id="cutPartsTableBody"></tbody></table></div>
       <div class="summary-strip" id="summaryStrip"></div>
@@ -533,8 +581,8 @@ function renderCutPartsTable() {
   const tbody = document.getElementById('cutPartsTableBody'); if (!tbody) return;
   const cp = STATE.draft.cutParts;
   tbody.innerHTML = cp.length ? cp.map((c, idx) => `
-    <tr><td class="mono">${esc(c.plu)}</td><td>${esc(c.description)}</td><td class="mono">${esc(c.material)}</td>
-    <td class="mono r">${fmtQty(c.qty)}</td><td class="r"><button class="btn btn-danger btn-sm" onclick="removeCutPart(${idx})">Remove</button></td></tr>`).join('')
+    <tr><td class="mono" data-label="PLU">${esc(c.plu)}</td><td data-label="Description">${esc(c.description)}</td><td class="mono" data-label="Material">${esc(c.material)}</td>
+    <td class="mono r" data-label="Qty (kg)">${fmtQty(c.qty)}</td><td class="r" data-label=""><button class="btn btn-danger btn-sm" onclick="removeCutPart(${idx})">Remove</button></td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="5">No cut parts yet. Pick a PLU, enter the weight and add it.</td></tr>`;
 }
 function onAddCutPart() {
@@ -630,9 +678,9 @@ function renderITDetail() {
   const done = e.status === 'completed';
   const cutOptions = activeItems('cut').map(i => `<option value="${esc(i.plu)}">${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
   const cutRows = e.cutParts.length ? e.cutParts.map((c, idx) => `
-    <tr><td class="mono">${esc(c.plu)}</td><td>${esc(c.description)}</td><td class="mono">${esc(c.material)}</td>
-    <td class="mono r">${done ? fmtQty(c.qty) : `<input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onEditCutQtyIT(${idx}, this.value)"/>`}</td>
-    <td class="r">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeCutPartIT(${idx})">Remove</button>`}</td></tr>`).join('')
+    <tr><td class="mono" data-label="PLU">${esc(c.plu)}</td><td data-label="Description">${esc(c.description)}</td><td class="mono" data-label="Material">${esc(c.material)}</td>
+    <td class="mono r" data-label="Qty (kg)">${done ? fmtQty(c.qty) : `<input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onEditCutQtyIT(${idx}, this.value)"/>`}</td>
+    <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeCutPartIT(${idx})">Remove</button>`}</td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="5">No cut parts. Add at least one.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
@@ -657,7 +705,7 @@ function renderITDetail() {
       ${done ? '' : `<div class="hint">Changes update the total and difference live. They are saved when you press Save corrections or Submit.</div>`}
 
       <div class="divider-label">Cut parts</div>
-      <div class="table-wrap"><table><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead><tbody>${cutRows}</tbody></table></div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead><tbody>${cutRows}</tbody></table></div>
       ${done ? '' : `
       <div class="grid3">
         <div class="field"><label for="itAddCutPluSelect">Add cut part – PLU</label><select id="itAddCutPluSelect"><option value="">Select PLU…</option>${cutOptions}</select></div>
@@ -681,11 +729,11 @@ function renderITDetail() {
     <div class="card">
       <div class="card-title">Material documents and sign-off</div>
       <div class="grid2">
-        <div class="field"><label for="matDocAInput">Material document A</label><input id="matDocAInput" class="uc" type="text" placeholder="e.g. 4900111222" value="${esc(F.matA)}" oninput="STATE.itForm.matA=upperize(this)" ${done ? 'disabled' : ''}/></div>
-        <div class="field"><label for="matDocBInput">Material document B</label><input id="matDocBInput" class="uc" type="text" placeholder="e.g. 1000011122" value="${esc(F.matB)}" oninput="STATE.itForm.matB=upperize(this)" ${done ? 'disabled' : ''}/></div>
+        <div class="field"><label for="matDocAInput">Material document A</label><input id="matDocAInput" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 4900111222" value="${esc(F.matA)}" oninput="STATE.itForm.matA=upperize(this)" ${done ? 'disabled' : ''}/></div>
+        <div class="field"><label for="matDocBInput">Material document B</label><input id="matDocBInput" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 1000011122" value="${esc(F.matB)}" oninput="STATE.itForm.matB=upperize(this)" ${done ? 'disabled' : ''}/></div>
       </div>
       <div class="grid2" id="itWdContainer">${itWdHTML(e, done)}</div>
-      <div class="field" style="max-width:300px;"><label for="keyedByInput">Key in by</label><input id="keyedByInput" class="uc" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.itForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
+      <div class="field" style="max-width:300px;"><label for="keyedByInput">Key in by</label><input id="keyedByInput" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.itForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
       <div class="btn-row">
         ${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="submitItBtn" onclick="submitITEntry()">Submit</button>`}
         <button class="btn btn-outline" onclick="printEntry(STATE.it)">Print</button>
@@ -699,7 +747,7 @@ function itSummaryHTML(e) {
 }
 function itWdHTML(e, done) {
   return `<div class="field"><label>Weight discrepancy (kg)</label><input type="text" readonly value="${e.difference === 0 ? '' : fmtQty(e.difference)}"/></div>
-    ${e.difference !== 0 ? `<div class="field"><label for="wdDocInput">Weight discrepancy material doc</label><input id="wdDocInput" class="uc" type="text" placeholder="e.g. 4900333444" value="${esc(STATE.itForm.wd)}" oninput="STATE.itForm.wd=upperize(this)" ${done ? 'disabled' : ''}/></div>` : ''}`;
+    ${e.difference !== 0 ? `<div class="field"><label for="wdDocInput">Weight discrepancy material doc</label><input id="wdDocInput" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 4900333444" value="${esc(STATE.itForm.wd)}" oninput="STATE.itForm.wd=upperize(this)" ${done ? 'disabled' : ''}/></div>` : ''}`;
 }
 function calcAreaHTML() {
   const c = STATE.itCalc;
@@ -869,7 +917,7 @@ function renderRecords() {
         <div class="field" style="flex:1;min-width:200px;"><label for="recSearch">Search</label><input id="recSearch" type="search" placeholder="Staff, PLU, document, key in by…" value="${esc(R.q)}" oninput="STATE.records.q=this.value;renderRecordsTable()"/></div>
       </div>
       <div id="recSummary" class="hint"></div>
-      <div class="table-wrap"><table id="recTable">
+      <div class="table-wrap"><table id="recTable" class="rt">
         <thead><tr><th>Date</th><th>Staff</th><th>Supervisor</th><th>Base product</th><th class="r">Base kg</th><th>Cut parts</th><th class="r">Cut kg</th><th class="r">Diff kg</th><th>Material docs</th><th>Key in</th><th>Status</th></tr></thead>
         <tbody id="recBody"></tbody></table></div>
     </div>`;
@@ -882,14 +930,14 @@ function renderRecordsTable() {
   document.getElementById('recSummary').textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'} in ${monthLabel(STATE.records.month)} · ${fmtQty(totalBase)} kg base · ${fmtQty(totalCut)} kg cut`;
   body.innerHTML = list.length ? list.map(e => `
     <tr class="clickable" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
-      <td class="mono" style="white-space:nowrap">${esc(fmtStamp(e.createdAt))}</td><td>${esc(e.staff)}</td><td>${esc(e.supervisor)}</td>
-      <td>${esc(e.base.description)}<div class="mono" style="color:var(--ink-3);font-size:12px">${esc(e.base.plu)}</div></td>
-      <td class="mono r">${fmtQty(e.base.qty)}</td>
-      <td>${e.cutParts.map(c => `<div>${esc(c.description)} <span class="mono" style="color:var(--ink-3)">${fmtQty(c.qty)}</span></div>`).join('')}</td>
-      <td class="mono r">${fmtQty(e.totalCutQty)}</td><td class="mono r">${e.difference === 0 ? '-' : fmtQty(e.difference)}</td>
-      <td class="mono">${esc([e.materialDocA, e.materialDocB, e.weightDiscrepancyDoc].filter(Boolean).join(' / '))}</td>
-      <td>${e.status === 'completed' ? esc(e.keyedInBy) + `<div class="mono" style="color:var(--ink-3);font-size:12px">${esc(fmtStamp(e.keyedInAt))}</div>` : ''}</td>
-      <td>${statusPill(e)}</td></tr>`).join('')
+      <td class="mono" data-label="Date" style="white-space:nowrap">${esc(fmtStamp(e.createdAt))}</td><td data-label="Staff">${esc(e.staff)}</td><td data-label="Supervisor">${esc(e.supervisor)}</td>
+      <td data-label="Base product">${esc(e.base.description)}<div class="mono sub-mono">${esc(e.base.plu)}</div></td>
+      <td class="mono r" data-label="Base kg">${fmtQty(e.base.qty)}</td>
+      <td data-label="Cut parts"><div>${e.cutParts.map(c => `<div>${esc(c.description)} <span class="mono" style="color:var(--ink-3)">${fmtQty(c.qty)}</span></div>`).join('')}</div></td>
+      <td class="mono r" data-label="Cut kg">${fmtQty(e.totalCutQty)}</td><td class="mono r" data-label="Diff kg">${e.difference === 0 ? '-' : fmtQty(e.difference)}</td>
+      <td class="mono" data-label="Material docs">${esc([e.materialDocA, e.materialDocB, e.weightDiscrepancyDoc].filter(Boolean).join(' / '))}</td>
+      <td data-label="Key in">${e.status === 'completed' ? esc(e.keyedInBy) + `<div class="mono sub-mono">${esc(fmtStamp(e.keyedInAt))}</div>` : ''}</td>
+      <td data-label="Status">${statusPill(e)}</td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="11">No entries match. Try another month or clear the search.</td></tr>`;
 }
 async function onRecMonth(v) {
@@ -947,7 +995,7 @@ function renderAdmin() {
       <button class="btn btn-ghost btn-sm" onclick="adminLock()">Lock admin</button></div>
     ${['base','cut'].map(t => `
     <div class="card"><div class="card-title">${t === 'base' ? 'Base products' : 'Cut parts'}</div>
-      <div class="table-wrap"><table><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
       <tbody id="admin-${t}"></tbody></table></div></div>`).join('')}
     <div class="card"><div class="card-title">Add new item</div>
       <div class="grid3">
@@ -956,7 +1004,7 @@ function renderAdmin() {
         <div class="field"><label for="newItemMaterial">Material code</label><input id="newItemMaterial" type="text" placeholder="e.g. 10099999"/></div>
       </div>
       <div class="grid2">
-        <div class="field"><label for="newItemDesc">Description</label><input id="newItemDesc" class="uc" type="text" placeholder="e.g. FRESH CHICKEN LIVER" oninput="upperize(this)"/></div>
+        <div class="field"><label for="newItemDesc">Description</label><input id="newItemDesc" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. FRESH CHICKEN LIVER" oninput="upperize(this)"/></div>
         <div class="field"><label for="newItemCost">Cost</label><input id="newItemCost" type="number" step="0.01" placeholder="0.00"/></div>
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="addAdminItem()">+ Add item</button></div>
@@ -967,10 +1015,10 @@ function renderAdminTable(type) {
   const body = document.getElementById('admin-' + type);
   const list = STATE.admin[type];
   body.innerHTML = list.length ? list.map((i, idx) => `
-    <tr style="${i.active ? '' : 'color:var(--ink-3)'}"><td class="mono">${esc(i.plu)}</td><td>${esc(i.description)}</td><td class="mono">${esc(i.material)}</td>
-    <td class="r"><input class="inline-input" type="number" step="0.01" value="${esc(i.cost)}" aria-label="Cost for ${esc(i.description)}" oninput="STATE.admin['${type}'][${idx}].cost=this.value"/></td>
-    <td>${i.active ? '<span class="pill done">' + ICON.check + 'Active</span>' : '<span class="pill pending">Hidden</span>'}</td>
-    <td class="r" style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="saveItemCost('${type}', ${idx})">Save cost</button>
+    <tr style="${i.active ? '' : 'color:var(--ink-3)'}"><td class="mono" data-label="PLU">${esc(i.plu)}</td><td data-label="Description">${esc(i.description)}</td><td class="mono" data-label="Material">${esc(i.material)}</td>
+    <td class="r" data-label="Cost"><input class="inline-input" type="number" step="0.01" value="${esc(i.cost)}" aria-label="Cost for ${esc(i.description)}" oninput="STATE.admin['${type}'][${idx}].cost=this.value"/></td>
+    <td data-label="Status">${i.active ? '<span class="pill done">' + ICON.check + 'Active</span>' : '<span class="pill pending">Hidden</span>'}</td>
+    <td class="r" data-label="" style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="saveItemCost('${type}', ${idx})">Save cost</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleItem('${type}', ${idx})">${i.active ? 'Hide' : 'Show'}</button></td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="6">No items yet.</td></tr>`;
 }
@@ -1011,6 +1059,7 @@ async function addAdminItem() {
 /* ============================= START ============================= */
 renderNav();
 window.addEventListener('hashchange', router);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleNav(false); closeModal(); } });
 router();
 </script>
 </body>

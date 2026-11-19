@@ -33,10 +33,11 @@ Create a repo under `itshbn-web` (e.g. `SHBN-FPRS`) and push this folder. `.env`
 `vercel.json` pins functions to `sin1` (Singapore). If your Neon project is in another region, change or remove `regions`.
 
 ### 4. Import the existing records (once)
+Copy `.env.example` to `.env` and fill in `DATABASE_URL`, then:
 ```
 npm install
-DATABASE_URL="postgres://..." node scripts/import-chicken-csv.js "SHBN - Chicken Processing Log.csv" --dry-run
-DATABASE_URL="postgres://..." node scripts/import-chicken-csv.js "SHBN - Chicken Processing Log.csv"
+node scripts/import-chicken-csv.js "SHBN - Chicken Processing Log.csv" --dry-run
+npm run import:chicken -- "SHBN - Chicken Processing Log.csv"
 ```
 Safe to re-run: entries that already exist are skipped.
 
@@ -53,3 +54,12 @@ The pending-count endpoint keeps the same response shape as the old Apps Script 
 - Processed entries are locked on the server as well as in the screen.
 - Negative weight difference is rejected on both new entries and IT corrections.
 - Times are always Malaysia time, regardless of the device's clock.
+
+## Saving Vercel deployments (free plan)
+- **Test locally first:** `npm run dev` runs the real app and API on your PC against your Neon database (http://localhost:3000). It does not create any Vercel deployment.
+- **Set both environment variables before the first deploy.** Changing them later needs a redeploy.
+- **Push to `main` only, in batches.** `vercel.json` has an ignore rule: a push is skipped (no build, no deployment counted) when it is on another branch, or when it only touches files outside `api/`, `lib/`, `public/`, `vercel.json` and `package.json` (README, `db/`, `scripts/`).
+- **Prices, PLUs and costs never need a deploy.** They live in the database and are edited in Admin.
+
+## Phones and PDAs
+Below 900 px wide the sidebar is hidden and only the three-line menu button shows. On phone-width screens the tables become stacked cards, inputs and buttons are at least 44 px tall (16 px text, so Android does not zoom), name fields open the keyboard in capitals, and quantity fields open the numeric keypad.

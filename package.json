@@ -5,9 +5,12 @@
   "description": "SHBN Fresh Processing Records System (FPRS)",
   "type": "module",
   "scripts": {
-    "import:chicken": "node scripts/import-chicken-csv.js"
+    "dev": "node --env-file=.env scripts/dev-server.js",
+    "import:chicken": "node --env-file=.env scripts/import-chicken-csv.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1"
   }
