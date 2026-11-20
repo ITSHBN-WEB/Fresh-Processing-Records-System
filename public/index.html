@@ -1363,10 +1363,8 @@ function batchListHTML() {
   const e = STATE.fruitIt, size = batchSize(), n = e.items.length;
   if (!n) return '<div class="hint">No items to copy.</div>';
   const btns = (key) => `
-    <button class="btn btn-outline btn-sm" onclick="copyBatch('${key}','both')">PLU + Qty</button>
-    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','plu')">PLU</button>
-    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','material')">Material</button>
-    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','qty')">Qty</button>`;
+    <button class="btn btn-outline btn-sm" onclick="copyBatch('${key}','material')">Material</button>
+    <button class="btn btn-outline btn-sm" onclick="copyBatch('${key}','qty')">Qty</button>`;
   let html = '';
   for (let b = 0, from = 0; from < n; b++, from += size) {
     const to = Math.min(n, from + size);
