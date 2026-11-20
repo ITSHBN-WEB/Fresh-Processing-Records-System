@@ -505,15 +505,10 @@ async function pageDashboard(_, token) {
       </a>
     </div>
 
-    <h2 class="section-h">Chicken cut parts</h2>
-    <div class="stats">
-      <a class="stat ${c.pending ? 'attn' : ''}" href="#/chicken/it"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div></a>
-    </div>
-
-    <h2 class="section-h">Mixed fruit BB</h2>
-    <div class="stats">
-      <a class="stat ${f.pending ? 'attn' : ''}" href="#/fruit/it"><div class="lbl">Waiting for IT processing</div><div class="big">${f.pending}</div></a>
-      <div class="stat"><div class="lbl">Mixed Fruit BB this month</div><div class="big">${fmtQty(f.monthBbQty)}</div><div class="sub">ea produced</div></div>
+    <h2 class="section-h">Waiting for IT processing</h2>
+    <div class="entry-cards">
+      <a class="stat ${c.pending ? 'attn' : ''}" href="#/chicken/it"><div class="lbl">Chicken cut parts</div><div class="big">${c.pending}</div></a>
+      <a class="stat ${f.pending ? 'attn' : ''}" href="#/fruit/it"><div class="lbl">Mixed fruit BB</div><div class="big">${f.pending}</div></a>
     </div>
 
     <div class="recent-grid">
