@@ -1189,7 +1189,7 @@ function printFruit(src) {
     const F = STATE.fruitForm;
     e = { ...src, materialDocA: F.matA, materialDocB: F.matB, keyedInBy: F.by };
   }
-  const rows = e.items.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.material)}</td><td>${esc(x.plu)}</td><td style="text-align:left">${esc(x.description)}</td><td>${esc(x.uom)}</td><td>${fmtQty(x.qty)}</td></tr>`).join('');
+  const rows = groupByMaterial(e.items).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.material)}</td><td>${esc(x.plu)}</td><td style="text-align:left">${esc(x.description)}</td><td>${esc(x.uom)}</td><td>${fmtQty(x.qty)}</td></tr>`).join('');
   document.getElementById('printArea').innerHTML = `
     <div class="print-title">MIXED FRUIT BB PROCESSING FORM</div>
     <div class="print-sub">OUTLET: SEGSHBN</div>
@@ -1250,12 +1250,29 @@ async function pageFruitDetail(m, token) {
   STATE.copied = {};
   renderFruitDetail();
 }
+// Items that share a material code are shown (and copied/printed) as one row:
+// every PLU is listed, the quantity is the total.
+function groupByMaterial(items) {
+  const map = new Map();
+  items.forEach((x, i) => {
+    let g = map.get(x.material);
+    if (!g) { g = { material: x.material, plus: [], descs: [], uom: x.uom, qty: 0, idx: [] }; map.set(x.material, g); }
+    g.plus.push(x.plu); g.idx.push(i); g.qty = round2(g.qty + Number(x.qty || 0));
+    if (!g.descs.includes(x.description)) g.descs.push(x.description);
+  });
+  return [...map.values()].map(g => ({ ...g, plu: g.plus.join(' / '), description: g.descs.join(' / ') }));
+}
 function renderFruitDetail() {
   const e = STATE.fruitIt, F = STATE.fruitForm, done = e.status === 'completed';
-  const rows = e.items.length ? e.items.map((x, i) => `<tr><td class="mono" data-label="#">${i + 1}</td><td class="mono" data-label="PLU">${esc(x.plu)}</td><td data-label="Description">${esc(x.description)}</td>
-      <td class="mono" data-label="Material">${esc(x.material)}</td><td data-label="Unit">${esc(x.uom)}</td>
-      <td class="mono r" data-label="Qty">${done ? fmtQty(x.qty) : fruitQtyInput(x, i, 'onEditFruitQtyIT')}</td>
-      <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeFruitItemIT(${i})">Remove</button>`}</td></tr>`).join('')
+  const groups = groupByMaterial(e.items), merged = groups.some(g => g.plus.length > 1);
+  const rows = groups.length ? groups.map((g, n) => {
+    const single = g.plus.length === 1;
+    const qty = (done || !single) ? fmtQty(g.qty) : fruitQtyInput(e.items[g.idx[0]], g.idx[0], 'onEditFruitQtyIT');
+    return `<tr><td class="mono" data-label="#">${n + 1}</td><td class="mono" data-label="PLU">${g.plus.map(esc).join('<br>')}</td><td data-label="Description">${esc(g.description)}</td>
+      <td class="mono" data-label="Material">${esc(g.material)}</td><td data-label="Unit">${esc(g.uom)}</td>
+      <td class="mono r" data-label="Qty">${qty}</td>
+      <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeFruitMaterialIT('${esc(g.material)}')">Remove</button>`}</td></tr>`;
+  }).join('')
     : `<tr class="empty-row"><td colspan="7">No items. Add at least one.</td></tr>`;
   document.getElementById('content').innerHTML = `
     <a class="back-link" href="${done ? '#/fruit/records' : '#/fruit/it'}">&larr; Back to ${done ? 'records' : 'pending entries'}</a>
@@ -1270,6 +1287,7 @@ function renderFruitDetail() {
       </div>
       <div class="divider-label">Fruit items</div>
       <div class="table-wrap"><table class="rt"><thead><tr><th>#</th><th>PLU</th><th>Description</th><th>Material</th><th>Unit</th><th class="r">Qty</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${merged ? '<div class="hint">PLUs with the same material code are combined into one row. The quantity is the total of those PLUs.</div>' : ''}
       ${done ? '' : `${pluWidgetHTML('addFruitItemIT', false)}`}
       <div class="divider-label">Mixed Fruit BB</div>
       <div class="grid2">
@@ -1304,7 +1322,7 @@ function onEditFruitQtyIT(i, v) { STATE.fruitIt.items[i].qty = Number(v) || 0; r
 function onEditFruitOutIT(plu) {
   const o = fruitOutputs().find(x => x.plu === plu); if (o) STATE.fruitIt.output = { ...STATE.fruitIt.output, plu: o.plu, description: o.description, material: o.material, uom: o.uom };
 }
-function removeFruitItemIT(i) { STATE.fruitIt.items.splice(i, 1); renderFruitDetail(); }
+function removeFruitMaterialIT(material) { STATE.fruitIt.items = STATE.fruitIt.items.filter(x => x.material !== material); renderFruitDetail(); }
 function addFruitItemIT() {
   const it = readFruitInputs(); if (!it) return;
   mergeFruitItem(STATE.fruitIt.items, it); renderFruitDetail();
@@ -1349,7 +1367,7 @@ function setBatchSize(v) {
 }
 function refreshBatches() { const el = document.getElementById('batchList'); if (el) el.innerHTML = batchListHTML(); }
 function batchListHTML() {
-  const e = STATE.fruitIt, size = batchSize(), n = e.items.length;
+  const e = STATE.fruitIt, size = batchSize(), n = groupByMaterial(e.items).length;
   if (!n) return '<div class="hint">No items to copy.</div>';
   const btns = (key) => `
     <button class="btn btn-outline btn-sm" onclick="copyBatch('${key}','material')">Material</button>
@@ -1366,7 +1384,7 @@ function batchListHTML() {
 }
 async function copyBatch(key, mode) {
   const e = STATE.fruitIt, size = batchSize();
-  const rows = key === 'out' ? [e.output] : e.items.slice(key * size, key * size + size);
+  const rows = key === 'out' ? [e.output] : groupByMaterial(e.items).slice(key * size, key * size + size);
   const col = { plu: r => r.plu, material: r => r.material, qty: r => fmtQty(r.qty), both: r => `${r.plu}\t${fmtQty(r.qty)}` }[mode];
   try { await navigator.clipboard.writeText(rows.map(col).join('\n')); }
   catch (err) { toast('Could not copy – your browser blocked clipboard access.', 'error'); return; }
