@@ -6,10 +6,10 @@ Module 2 (planned): **Mixed Fruit BB** – placeholder on the dashboard and side
 Stack: static frontend (`public/index.html`) + Vercel serverless API (`api/`) + Neon Postgres. No build step.
 
 ```
-api/        Vercel functions: entries, items, dashboard, pending, admin-login, health
+api/        Vercel functions (9 of the 12 allowed on the free plan, incl. mf-items, mf-entries, admin-entries)
 lib/        db client, HTTP helpers, entry validation/write logic
 public/     index.html (the whole frontend)
-db/         schema.sql (run once in Neon)
+db/         schema.sql, then mixed_fruit.sql (run each once in Neon)
 scripts/    import-chicken-csv.js (one-off import of the old sheet)
 ```
 
@@ -17,7 +17,7 @@ scripts/    import-chicken-csv.js (one-off import of the old sheet)
 
 ### 1. Neon
 1. Create a project (pick the Singapore region if available).
-2. SQL Editor → paste and run `db/schema.sql`. It creates the tables and seeds the default PLU list.
+2. SQL Editor → paste and run `db/schema.sql` (chicken tables and default PLU list), then run `db/mixed_fruit.sql` (Mixed Fruit BB tables). **Run both before the new code is deployed**, otherwise the dashboard cannot load.
 3. Copy the connection string (Dashboard → Connect). This is `DATABASE_URL`.
 
 ### 2. GitHub
@@ -41,9 +41,13 @@ npm run import:chicken -- "SHBN - Chicken Processing Log.csv"
 ```
 Safe to re-run: entries that already exist are skipped.
 
+### 4b. Load the Mixed Fruit BB masterlist (once)
+
+The masterlist is loaded with an SQL script in the Neon SQL Editor, not with npm. Fix the PLUs listed in `Mixed_Fruit_BB_masterlist.needs-fix.csv` first, then generate and run the SQL (`insert into mf_items ... on conflict (plu) do nothing`). Items can also be added one by one in Admin → Master data → Mixed fruit BB. Scanned labels `28` + 5-digit PLU + 11 digits are read as the 5-digit PLU.
+
 ### 5. Control Tower
 The pending-count endpoint keeps the same response shape as the old Apps Script one:
-`GET https://<your-app>.vercel.app/api/pending` → `{"ok":true,"pendingCount":N}` (CORS enabled).
+`GET https://<your-app>.vercel.app/api/pending` → `{"ok":true,"pendingCount":N,"fruitPendingCount":M,"totalPendingCount":N+M}`. `pendingCount` is still chicken only, so the existing Control Tower keeps working. (CORS enabled).
 
 ## Differences from the old app
 - Data lives in Neon, not Google Sheets. The monthly audit tabs are replaced by **Records** (month filter, search, **Export CSV** in the old sheet layout).

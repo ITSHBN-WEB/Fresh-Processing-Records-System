@@ -261,6 +261,25 @@ body{-webkit-tap-highlight-color:transparent;overflow-x:hidden;}
   table.rt .empty-row td::before{display:none;}
   table.rt tr.clickable:active{background:var(--surface-alt);}
 }
+
+.seg{display:inline-flex;border:1px solid var(--line-s,#cfc8c4);border-radius:10px;overflow:hidden;margin-bottom:16px;background:var(--surface);}
+.seg button{border:0;background:transparent;padding:10px 16px;font:inherit;font-weight:600;color:var(--ink-2);cursor:pointer;}
+.seg button.on{background:var(--primary);color:#fff;}
+.admin-boxes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+.admin-box{display:flex;flex-direction:column;gap:3px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);text-decoration:none;}
+.admin-box span{font-size:13px;color:var(--ink-2);}
+.admin-box:hover{border-color:var(--primary);}
+.admin-box.on{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary);background:var(--primary-tint,#fbf3f4);}
+.check{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:14px;}
+.check input{margin-top:3px;width:18px;height:18px;}
+.plu-hint{font-size:12.5px;margin-top:4px;min-height:18px;color:var(--ink-2);}
+.plu-hint.err{color:var(--danger);} .plu-hint.ok{color:#2f6b3d;}
+.batch{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--surface);}
+.batch.out{border-color:var(--primary);}
+.batch-info{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.batch-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.recent-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:900px){.recent-grid,.admin-boxes{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -300,6 +319,10 @@ const STATE = {
   itCalc: null,
   admin: { base: [], cut: [] },
   records: { month: '', status: 'all', q: '', entries: [] },
+  fruitDraft: null, fruitIt: null, fruitForm: { matA:'', matB:'', by:'' }, copied: {},
+  fruitRec: { month: '', status: 'all', q: '', entries: [] },
+  fruitSearch: '', adminList: 'chicken',
+  adj: { type: 'chicken', month: '', status: 'all', q: '', entries: [] }, adjC: null, adjF: null,
 };
 
 /* ============================= API ============================= */
@@ -319,9 +342,11 @@ const activeItems = (type) => ITEMS[type].filter(i => i.active);
 const findItem = (type, plu) => ITEMS[type].find(i => String(i.plu) === String(plu));
 const findCost = (type, plu) => { const i = findItem(type, plu); return i ? Number(i.cost) : 0; };
 async function refreshBadge() {
-  try { pendingCount = (await api('pending')).pendingCount; } catch (e) { return; }
-  const b = document.getElementById('navBadge');
-  if (b) { b.textContent = pendingCount; b.style.display = pendingCount > 0 ? '' : 'none'; }
+  let r; try { r = await api('pending'); } catch (e) { return; }
+  pendingCount = r.pendingCount;
+  [['navBadge', r.pendingCount], ['navBadgeF', r.fruitPendingCount]].forEach(([id, n]) => {
+    const b = document.getElementById(id); if (b) { b.textContent = n; b.style.display = n > 0 ? '' : 'none'; }
+  });
 }
 
 /* ============================= UTIL ============================= */
@@ -329,7 +354,14 @@ const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 const fmtQty = (n) => (Math.round((Number(n) || 0) * 100) / 100).toString();
 const fmtMoney = (n) => Number(n || 0).toFixed(2);
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-const genId = () => 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+const genId = (p) => (p || 'e') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+function downloadCsv(rows, filename) {
+  const cell = (v) => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const csv = '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
 
 function tzParts(ms) {
   const p = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, day:'numeric', month:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true }).formatToParts(new Date(ms));
@@ -382,10 +414,12 @@ const NAV = [
   { href:'#/dashboard', label:'Dashboard', icon:'dash' },
   { group:'Chicken Cut Parts', mark:'🍗' },
   { href:'#/chicken/new', label:'New entry', icon:'plus' },
-  { href:'#/chicken/it', label:'IT processing', icon:'clip', badge:true },
+  { href:'#/chicken/it', label:'Pending entries', icon:'clip', badge:'navBadge' },
   { href:'#/chicken/records', label:'Records', icon:'list' },
   { group:'Mixed Fruit BB', mark:'🍓' },
-  { off:true, label:'New entry', icon:'plus', soon:true },
+  { href:'#/fruit/new', label:'New entry', icon:'plus' },
+  { href:'#/fruit/it', label:'Pending entries', icon:'clip', badge:'navBadgeF' },
+  { href:'#/fruit/records', label:'Records', icon:'list' },
   { group:'System' },
   { href:'#/admin', label:'Admin', icon:'gear' },
 ];
@@ -393,14 +427,14 @@ function renderNav() {
   document.getElementById('nav').innerHTML = NAV.map(n => {
     if (n.group) return `<div class="nav-group">${n.mark ? `<span class="mk">${n.mark}</span>` : ''}${esc(n.group)}</div>`;
     if (n.off) return `<div class="nav-off">${ICON[n.icon]}${esc(n.label)}<span class="soon">Soon</span></div>`;
-    return `<a href="${n.href}" data-href="${n.href}">${ICON[n.icon]}${esc(n.label)}${n.badge ? `<span class="badge" id="navBadge" style="display:none"></span>` : ''}</a>`;
+    return `<a href="${n.href}" data-href="${n.href}">${ICON[n.icon]}${esc(n.label)}${n.badge ? `<span class="badge" id="${n.badge}" style="display:none"></span>` : ''}</a>`;
   }).join('');
 }
 function toggleNav(open) { document.body.classList.toggle('nav-open', open); }
 function setActiveNav(hash) {
   document.querySelectorAll('#nav a').forEach(a => {
     const h = a.dataset.href;
-    a.classList.toggle('active', hash === h || (h === '#/chicken/it' && hash.startsWith('#/chicken/it')));
+    a.classList.toggle('active', hash === h || ((h === '#/chicken/it' || h === '#/fruit/it' || h === '#/admin') && hash.startsWith(h + '/')) || (h === '#/admin' && hash.startsWith('#/admin')));
   });
 }
 
@@ -411,8 +445,13 @@ const ROUTES = [
   [/^#\/chicken\/it$/, pageChickenIT],
   [/^#\/chicken\/it\/([\w-]+)$/, pageChickenDetail],
   [/^#\/chicken\/records$/, pageRecords],
-  [/^#\/fruit\/new$/, pageFruitSoon],
+  [/^#\/fruit\/new$/, pageFruitNew],
+  [/^#\/fruit\/it$/, pageFruitIT],
+  [/^#\/fruit\/it\/([\w-]+)$/, pageFruitDetail],
+  [/^#\/fruit\/records$/, pageFruitRecords],
   [/^#\/admin$/, pageAdmin],
+  [/^#\/admin\/records$/, pageAdminRecords],
+  [/^#\/admin\/records\/(chicken|fruit)\/([\w-]+)$/, pageAdminEdit],
 ];
 async function router() {
   const hash = location.hash || '#/dashboard';
@@ -435,20 +474,22 @@ const stale = (token) => token !== renderToken;
 async function pageDashboard(_, token) {
   const [dash] = await Promise.all([api('dashboard'), loadItems()]);
   if (stale(token)) return;
-  const c = dash.chicken;
+  const c = dash.chicken, f = dash.fruit;
   const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour:'numeric', hour12:false }).format(new Date()));
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const today = new Date().toLocaleDateString('en-GB', { timeZone: TZ, weekday:'long', day:'numeric', month:'long', year:'numeric' });
-  const pendingSub = c.pending ? `Oldest waiting ${ago(c.oldestPendingAt).replace(' ago','')}` : 'All caught up';
+  const waiting = (n, at) => (n ? `Oldest waiting ${ago(at).replace(' ago', '')}` : 'All caught up');
 
-  const recent = c.recent.length ? c.recent.map(e => `
+  const chickenRecent = c.recent.length ? c.recent.map(e => `
     <div class="list-item" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
-      <div class="li-main">
-        <div class="li-title">${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></div>
-        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · ${esc(e.staff)} / ${esc(e.supervisor)} · ${e.cutParts.length} cut part(s)</div>
-      </div>
-      <div class="li-meta">${statusPill(e)}</div>
-    </div>`).join('') : `<div class="hint">No entries yet. Start with a new chicken cut parts entry above.</div>`;
+      <div class="li-main"><div class="li-title">${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · ${esc(e.staff)} / ${esc(e.supervisor)} · ${e.cutParts.length} cut part(s)</div></div>
+      <div class="li-meta">${statusPill(e)}</div></div>`).join('') : `<div class="hint">No entries yet. Start with a new chicken cut parts entry above.</div>`;
+  const fruitRecent = f.recent.length ? f.recent.map(e => `
+    <div class="list-item" onclick="location.hash='#/fruit/it/${esc(e.id)}'">
+      <div class="li-main"><div class="li-title">${fruitLine(e)}</div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · ${esc(e.recordedBy)} / ${esc(e.supervisor)} · ${e.items.length} item(s)</div></div>
+      <div class="li-meta">${statusPill(e)}</div></div>`).join('') : `<div class="hint">No entries yet. Start with a new mixed fruit BB entry above.</div>`;
 
   document.getElementById('content').innerHTML = `
     <div class="page-head"><div><h1>${greet}</h1><p>${esc(today)}</p></div></div>
@@ -457,25 +498,33 @@ async function pageDashboard(_, token) {
     <div class="entry-cards">
       <a class="ticket" href="#/chicken/new">
         <div class="stub">🍗</div>
-        <div class="body"><h3>Chicken cut parts</h3><p>Record a base product and the cut parts it was processed into.</p><span class="go">New entry ${'&rarr;'}</span></div>
+        <div class="body"><h3>Chicken cut parts</h3><p>Record a base product and the cut parts it was processed into.</p><span class="go">New entry &rarr;</span></div>
       </a>
-      <div class="ticket off" aria-disabled="true">
+      <a class="ticket" href="#/fruit/new">
         <div class="stub">🍓</div>
-        <div class="body"><h3>Mixed fruit BB</h3><p>Coming soon. This record type is still being set up.</p><span class="go">Not available yet</span></div>
-      </div>
+        <div class="body"><h3>Mixed fruit BB</h3><p>Record the fruit items that go into the mix and the Mixed Fruit BB quantity.</p><span class="go">New entry &rarr;</span></div>
+      </a>
     </div>
 
     <h2 class="section-h">Chicken cut parts</h2>
     <div class="stats">
-      <div class="stat ${c.pending ? 'attn' : ''}"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div><div class="sub">${esc(pendingSub)}</div></div>
+      <a class="stat ${c.pending ? 'attn' : ''}" href="#/chicken/it"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div><div class="sub">${esc(waiting(c.pending, c.oldestPendingAt))}</div></a>
       <div class="stat"><div class="lbl">Entries today</div><div class="big">${c.today}</div><div class="sub">Malaysia time</div></div>
       <div class="stat"><div class="lbl">Entries this month</div><div class="big">${c.monthEntries}</div><div class="sub">${fmtQty(c.monthBaseKg)} kg base product</div></div>
       <div class="stat"><div class="lbl">Cut yield this month</div><div class="big">${c.monthYieldPct === null ? '–' : c.monthYieldPct + '%'}</div><div class="sub">${fmtQty(c.monthCutKg)} kg of cut parts</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span>Recent entries</span><a class="btn btn-ghost btn-sm" href="#/chicken/records">View all records</a></div>
-      ${recent}
+    <h2 class="section-h">Mixed fruit BB</h2>
+    <div class="stats">
+      <a class="stat ${f.pending ? 'attn' : ''}" href="#/fruit/it"><div class="lbl">Waiting for IT processing</div><div class="big">${f.pending}</div><div class="sub">${esc(waiting(f.pending, f.oldestPendingAt))}</div></a>
+      <div class="stat"><div class="lbl">Entries today</div><div class="big">${f.today}</div><div class="sub">Malaysia time</div></div>
+      <div class="stat"><div class="lbl">Entries this month</div><div class="big">${f.monthEntries}</div><div class="sub">&nbsp;</div></div>
+      <div class="stat"><div class="lbl">Mixed Fruit BB this month</div><div class="big">${fmtQty(f.monthBbQty)}</div><div class="sub">ea produced</div></div>
+    </div>
+
+    <div class="recent-grid">
+      <div class="card"><div class="card-title"><span>Recent chicken cut parts</span><a class="btn btn-ghost btn-sm" href="#/chicken/records">Records</a></div>${chickenRecent}</div>
+      <div class="card"><div class="card-title"><span>Recent mixed fruit BB</span><a class="btn btn-ghost btn-sm" href="#/fruit/records">Records</a></div>${fruitRecent}</div>
     </div>`;
 }
 function statusPill(e) {
@@ -651,7 +700,7 @@ async function pageChickenIT(_, token) {
     </div>`).join('') : `<div class="hint">No processed entries yet.</div>`;
   STATE.listCache = [...p.entries, ...c.entries];
   document.getElementById('content').innerHTML = `
-    <div class="page-head"><div><h1>IT processing · Chicken cut parts</h1><p>Open an entry to correct quantities, calculate values and key in the material documents.</p></div>
+    <div class="page-head"><div><h1>Pending entries · Chicken cut parts</h1><p>Open an entry to correct quantities, calculate values and key in the material documents.</p></div>
       <button class="btn btn-ghost btn-sm" onclick="router()">Refresh</button></div>
     <div class="card"><div class="card-title">Waiting for processing (${pending.length})</div>${pendingHTML}</div>
     <div class="card"><div class="card-title"><span>Recently processed</span><a class="btn btn-ghost btn-sm" href="#/chicken/records">All records</a></div>${doneHTML}</div>`;
@@ -684,7 +733,7 @@ function renderITDetail() {
     : `<tr class="empty-row"><td colspan="5">No cut parts. Add at least one.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
-    <a class="back-link" href="${done ? '#/chicken/records' : '#/chicken/it'}">&larr; Back to ${done ? 'records' : 'IT processing'}</a>
+    <a class="back-link" href="${done ? '#/chicken/records' : '#/chicken/it'}">&larr; Back to ${done ? 'records' : 'pending entries'}</a>
     <div class="page-head"><div><h1>${esc(e.base.description)} · <span class="num">${fmtQty(e.base.qty)} kg</span></h1><p>${esc(fmtStamp(e.createdAt))}</p></div>${statusPill(e)}</div>
 
     <div class="card">
@@ -966,34 +1015,497 @@ function exportRecordsCsv() {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-/* ============================= MIXED FRUIT (placeholder) ============================= */
-async function pageFruitSoon() {
-  document.getElementById('content').innerHTML = `<div class="card"><div class="card-title">Mixed fruit BB</div>
-    <div class="hint">This record type is not available yet.</div><a class="btn btn-primary" href="#/dashboard">Back to dashboard</a></div>`;
+/* ============================= MIXED FRUIT BB ============================= */
+let FRUIT = [];   // masterlist rows: {plu, material, description, uom, category, role, active}
+async function loadFruit() { FRUIT = (await api('mf-items')).items; }
+const fruitOutputs = () => FRUIT.filter(i => i.role === 'output' && i.active);
+const uomLabel = (u) => (u === 'KG' ? 'kg' : 'ea');
+
+// Scanned label 28 + 5-digit PLU + 11 digits (285010600000000000) -> 50106. Anything else is left as typed.
+function normalizePlu(raw) { const s = String(raw ?? '').trim(); const m = /^28(\d{5})\d{11}$/.exec(s); return m ? m[1] : s; }
+function lookupFruit(raw) {
+  const typed = String(raw ?? '').trim(), plu = normalizePlu(typed);
+  const hit = FRUIT.find(i => i.plu === plu && i.active);
+  return { plu, typed, scanned: plu !== typed, item: hit && hit.role === 'input' ? hit : null, isOutput: !!hit && hit.role === 'output' };
+}
+function gateCard(cardId, ready, msg, ids) {
+  const card = document.getElementById(cardId); if (!card) return;
+  card.classList.toggle('locked', !ready);
+  ids.forEach(id => { const el = card.querySelector('#' + id); if (el) el.disabled = !ready; });
+  const hint = card.querySelector('[data-lock]');
+  if (ready && hint) hint.remove();
+  if (!ready && !hint) card.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="note warn" data-lock>${msg}</div>`);
+}
+
+// ---- PLU entry widget (shared by New entry, Pending entry and Admin edit) ----
+function pluWidgetHTML(addHandler, locked) {
+  return `
+    <div class="grid3">
+      <div class="field"><label for="fPlu">PLU code</label>
+        <input id="fPlu" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Scan or type PLU" ${locked ? 'disabled' : ''}
+          oninput="onFruitPluInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('fQty').focus();}"/></div>
+      <div class="field"><label>Description</label><input id="fDesc" type="text" readonly/></div>
+      <div class="field"><label>Unit</label><input id="fUom" type="text" readonly/></div>
+    </div>
+    <div id="fPluHint" class="plu-hint"></div>
+    <div class="grid3">
+      <div class="field"><label for="fQty" id="fQtyLabel">Quantity</label>
+        <input id="fQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" ${locked ? 'disabled' : ''}
+          onkeydown="if(event.key==='Enter'){event.preventDefault();${addHandler}();}"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-primary" id="fAddBtn" onclick="${addHandler}()" ${locked ? 'disabled' : ''}>+ Add item</button></div>
+      <div class="field"><label>Material</label><input id="fMat" type="text" readonly/></div>
+    </div>`;
+}
+function onFruitPluInput(el) {
+  const r = lookupFruit(el.value);
+  const set = (id, v) => { const n = document.getElementById(id); if (n) n.value = v; };
+  set('fDesc', r.item ? r.item.description : ''); set('fUom', r.item ? r.item.uom : ''); set('fMat', r.item ? r.item.material : '');
+  let msg = '', cls = '';
+  if (r.item) { if (r.scanned) msg = `Scanned label read as PLU ${r.plu}.`; }
+  else if (r.isOutput) { msg = 'This is the Mixed Fruit BB product. It is entered in the Mixed Fruit BB step, not as an item.'; cls = 'warn'; }
+  else if (r.typed.length >= 5 && !FRUIT.some(i => i.plu.startsWith(r.plu))) { msg = `PLU ${r.plu} is not in the masterlist.`; cls = 'err'; }
+  const hint = document.getElementById('fPluHint'); hint.textContent = msg; hint.className = 'plu-hint ' + cls;
+  const q = document.getElementById('fQty'), ea = r.item && r.item.uom === 'EA';
+  if (q) { q.step = ea ? '1' : '0.01'; q.inputMode = ea ? 'numeric' : 'decimal'; }
+  const ql = document.getElementById('fQtyLabel'); if (ql) ql.textContent = r.item ? `Quantity (${uomLabel(r.item.uom)})` : 'Quantity';
+}
+function readFruitInputs() {
+  const el = document.getElementById('fPlu'), r = lookupFruit(el.value);
+  if (!r.typed) { toast('Enter or scan a PLU code.', 'error'); el.focus(); return null; }
+  if (!r.item) { toast(r.isOutput ? 'BB FRUITS is entered in the Mixed Fruit BB step.' : `PLU ${r.plu} is not in the masterlist.`, 'error'); el.select(); return null; }
+  const qEl = document.getElementById('fQty'), qty = Number(qEl.value);
+  if (!(qty > 0)) { toast('Enter a quantity greater than 0.', 'error'); qEl.focus(); return null; }
+  if (r.item.uom === 'EA' && !Number.isInteger(qty)) { toast('Unit is EA, so the quantity must be a whole number.', 'error'); qEl.focus(); return null; }
+  return { plu: r.item.plu, description: r.item.description, material: r.item.material, uom: r.item.uom, qty: round2(qty) };
+}
+function clearFruitInputs() {
+  ['fPlu', 'fQty', 'fDesc', 'fUom', 'fMat'].forEach(id => { const n = document.getElementById(id); if (n) n.value = ''; });
+  onFruitPluInput(document.getElementById('fPlu')); document.getElementById('fPlu').focus();
+}
+function mergeFruitItem(list, it) {
+  const ex = list.find(x => x.plu === it.plu);
+  if (ex) ex.qty = round2(ex.qty + it.qty); else list.push(it);
+}
+function fruitQtyInput(it, idx, handler) {
+  return `<input class="inline-input" type="number" inputmode="${it.uom === 'EA' ? 'numeric' : 'decimal'}" min="0" step="${it.uom === 'EA' ? 1 : 0.01}" value="${esc(it.qty)}" aria-label="Quantity for ${esc(it.description)}" oninput="${handler}(${idx}, this.value)"/>`;
+}
+function outputSelectHTML(id, selected, outputs, onchange, disabled) {
+  return `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} ${disabled ? 'disabled' : ''}>${outputs.map(o => `<option value="${esc(o.plu)}" ${o.plu === selected ? 'selected' : ''}>${esc(o.description)} (${esc(o.plu)})</option>`).join('')}</select>`;
+}
+
+/* ---------- Fruit: New entry ---------- */
+function resetFruitDraft() {
+  const outs = fruitOutputs();
+  STATE.fruitDraft = { id: genId('f'), recordedBy: '', supervisor: '', items: [], continued: false, outputPlu: outs[0] ? outs[0].plu : '', outputQty: '' };
+}
+async function pageFruitNew(_, token) {
+  await loadFruit();
+  if (stale(token)) return;
+  if (!STATE.fruitDraft) resetFruitDraft();
+  renderFruitNew();
+}
+function renderFruitNew() {
+  const d = STATE.fruitDraft;
+  const namesReady = !!(d.recordedBy.trim() && d.supervisor.trim());
+  const outReady = namesReady && d.continued && d.items.length > 0;
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>New entry · Mixed fruit BB</h1><p>Add each fruit that goes into the mix, then enter the Mixed Fruit BB quantity.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="clearFruitDraft()">Clear form</button></div>
+
+    <div class="card">
+      <div class="card-title"><span><span class="step">1</span>Record by and supervisor</span></div>
+      <div class="grid2">
+        <div class="field"><label for="fRecBy">Record by</label>
+          <input id="fRecBy" type="text" class="uc" autocapitalize="characters" spellcheck="false" autocomplete="off" value="${esc(d.recordedBy)}" oninput="onFruitText('recordedBy', upperize(this))"/></div>
+        <div class="field"><label for="fSup">Supervisor</label>
+          <input id="fSup" type="text" class="uc" autocapitalize="characters" spellcheck="false" autocomplete="off" value="${esc(d.supervisor)}" oninput="onFruitText('supervisor', upperize(this))"/></div>
+      </div>
+    </div>
+
+    <div class="card gated ${namesReady ? '' : 'locked'}" id="fItemsCard">
+      <div class="card-title"><span><span class="step">2</span>Fruit items</span></div>
+      ${namesReady ? '' : '<div class="note warn" data-lock>Enter record by and supervisor above to continue.</div>'}
+      ${pluWidgetHTML('addFruitItem', !namesReady)}
+      <div class="table-wrap"><table class="rt"><thead><tr><th>#</th><th>PLU</th><th>Description</th><th>Unit</th><th class="r">Qty</th><th></th></tr></thead>
+        <tbody id="fItemsBody"></tbody></table></div>
+      <div class="btn-row"><button class="btn btn-outline" id="fContinueBtn" onclick="continueFruit()">Continue &rarr;</button>
+        <span class="hint" id="fItemCount" style="margin:0"></span></div>
+    </div>
+
+    <div class="card gated ${outReady ? '' : 'locked'}" id="fOutCard">
+      <div class="card-title"><span><span class="step">3</span>Mixed Fruit BB</span></div>
+      ${outReady ? '' : '<div class="note warn" data-lock>Add at least one fruit item and press Continue.</div>'}
+      <div class="grid2">
+        <div class="field"><label for="fOutSel">Mixed Fruit BB product</label>${outputSelectHTML('fOutSel', d.outputPlu, fruitOutputs(), "STATE.fruitDraft.outputPlu=this.value", !outReady)}</div>
+        <div class="field"><label for="fOutQty">Quantity (ea)</label>
+          <input id="fOutQty" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${esc(d.outputQty)}" oninput="STATE.fruitDraft.outputQty=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();submitFruit();}" ${outReady ? '' : 'disabled'}/></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary btn-block" id="fSubmitBtn" onclick="submitFruit()">Submit entry</button></div>
+    </div>`;
+  renderFruitItems();
+}
+function clearFruitDraft() { resetFruitDraft(); renderFruitNew(); }
+function onFruitText(field, v) { STATE.fruitDraft[field] = v; updateFruitGating(); }
+function updateFruitGating() {
+  const d = STATE.fruitDraft;
+  const namesReady = !!(d.recordedBy.trim() && d.supervisor.trim());
+  gateCard('fItemsCard', namesReady, 'Enter record by and supervisor above to continue.', ['fPlu', 'fQty', 'fAddBtn']);
+  gateCard('fOutCard', namesReady && d.continued && d.items.length > 0, 'Add at least one fruit item and press Continue.', ['fOutSel', 'fOutQty']);
+  const cb = document.getElementById('fContinueBtn'); if (cb) cb.disabled = !(namesReady && d.items.length > 0);
+  const sb = document.getElementById('fSubmitBtn'); if (sb) sb.disabled = !(namesReady && d.continued && d.items.length > 0);
+  const c = document.getElementById('fItemCount'); if (c) c.textContent = d.items.length ? `${d.items.length} item${d.items.length === 1 ? '' : 's'} added` : '';
+}
+function renderFruitItems() {
+  const body = document.getElementById('fItemsBody'), it = STATE.fruitDraft.items;
+  body.innerHTML = it.length ? it.map((x, i) => `<tr><td class="mono" data-label="#">${i + 1}</td><td class="mono" data-label="PLU">${esc(x.plu)}</td><td data-label="Description">${esc(x.description)}</td>
+    <td data-label="Unit">${esc(x.uom)}</td><td class="mono r" data-label="Qty">${fmtQty(x.qty)}</td>
+    <td class="r" data-label=""><button class="btn btn-danger btn-sm" onclick="removeFruitItem(${i})">Remove</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="6">No items yet. Scan or type a PLU code, enter the quantity and add it.</td></tr>`;
+  updateFruitGating();
+}
+function addFruitItem() {
+  const it = readFruitInputs(); if (!it) return;
+  mergeFruitItem(STATE.fruitDraft.items, it);
+  renderFruitItems(); clearFruitInputs();
+}
+function removeFruitItem(i) {
+  const d = STATE.fruitDraft; d.items.splice(i, 1);
+  if (!d.items.length) d.continued = false;
+  renderFruitItems();
+}
+function continueFruit() {
+  const d = STATE.fruitDraft;
+  if (!d.items.length) { toast('Add at least one fruit item first.', 'error'); return; }
+  d.continued = true; updateFruitGating();
+  const q = document.getElementById('fOutQty'); q.focus(); q.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+async function submitFruit() {
+  const d = STATE.fruitDraft, qty = Number(d.outputQty);
+  if (!(qty > 0) || !Number.isInteger(qty)) { toast('Enter the Mixed Fruit BB quantity as a whole number above 0.', 'error'); document.getElementById('fOutQty').focus(); return; }
+  const btn = document.getElementById('fSubmitBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await api('mf-entries', { method: 'POST', body: { id: d.id, recordedBy: d.recordedBy, supervisor: d.supervisor,
+      items: d.items.map(x => ({ plu: x.plu, qty: x.qty })), outputPlu: d.outputPlu, outputQty: qty } });
+  } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Submit entry'; return; }
+  toast('Entry submitted. It is now in Pending entries.', 'success');
+  resetFruitDraft(); renderFruitNew(); refreshBadge();
+  document.getElementById('fRecBy').focus();
+}
+
+/* ============================= MIXED FRUIT: PRINT ============================= */
+function printFruit(src) {
+  let e = src;
+  // Unsubmitted entry: print what is currently typed in the form.
+  if (STATE.fruitIt && STATE.fruitIt.id === src.id && src.status !== 'completed') {
+    const F = STATE.fruitForm;
+    e = { ...src, materialDocA: F.matA, materialDocB: F.matB, keyedInBy: F.by };
+  }
+  const rows = e.items.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.material)}</td><td>${esc(x.plu)}</td><td style="text-align:left">${esc(x.description)}</td><td>${esc(x.uom)}</td><td>${fmtQty(x.qty)}</td></tr>`).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-title">MIXED FRUIT BB PROCESSING FORM</div>
+    <div class="print-sub">OUTLET: SEGSHBN</div>
+    <div class="print-meta"><div><strong>Date:</strong> ${esc(fmtStamp(e.createdAt))}</div><div><strong>Record by:</strong> ${esc(e.recordedBy)}</div><div><strong>Supervisor:</strong> ${esc(e.supervisor)}</div></div>
+    <table class="print-table">
+      <thead><tr><th>#</th><th>Material</th><th>PLU</th><th>Description</th><th>Unit</th><th>Qty</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <table class="print-table" style="margin-top:14px">
+      <thead><tr><th>Mixed Fruit BB Material</th><th>PLU</th><th>Description</th><th>Unit</th><th>Qty</th></tr></thead>
+      <tbody><tr><td>${esc(e.output.material)}</td><td>${esc(e.output.plu)}</td><td style="text-align:left">${esc(e.output.description)}</td><td>${esc(e.output.uom)}</td><td><strong>${fmtQty(e.output.qty)}</strong></td></tr></tbody></table>
+    <div class="print-footer">
+      Material Doc A: <strong>${esc(e.materialDocA || '')}</strong> &nbsp;&nbsp; Material Doc B: <strong>${esc(e.materialDocB || '')}</strong><br/>
+      Key in by: <strong>${esc(e.keyedInBy || '')}</strong> &nbsp;&nbsp; Date: <strong>${esc(fmtStamp(e.keyedInAt))}</strong>
+    </div>
+    <div class="print-operation">
+      <div class="op-title">Operation:</div>
+      <div class="op-row">
+        <div class="op-col"><div class="op-line"></div><div>Record by: <strong>${esc(e.recordedBy)}</strong></div></div>
+        <div class="op-col"><div class="op-line"></div><div>Supervisor: <strong>${esc(e.supervisor)}</strong></div></div>
+      </div>
+      <div class="op-row op-row-labels"><div class="op-col">Review by:</div><div class="op-col">Key in by:</div></div>
+      <div class="op-row"><div class="op-col"><div class="op-line op-line-tall"></div></div>
+        <div class="op-col"><div class="op-line op-line-tall"></div><div>Name: <strong>${esc(e.keyedInBy || '')}</strong></div></div></div>
+    </div>`;
+  window.print();
+}
+function printFruitById(id) {
+  const e = (STATE.fruitIt && STATE.fruitIt.id === id) ? STATE.fruitIt : (STATE.fruitCache || []).find(x => x.id === id);
+  if (e) printFruit(e);
+}
+
+/* ---------- Fruit: Pending entries ---------- */
+const fruitLine = (e) => `${esc(e.output.description)} · <span class="num">${fmtQty(e.output.qty)} ${uomLabel(e.output.uom)}</span>`;
+async function pageFruitIT(_, token) {
+  const [p, c] = await Promise.all([api('mf-entries?status=pending&limit=200'), api('mf-entries?status=completed&limit=8'), loadFruit()]);
+  if (stale(token)) return;
+  const row = (e, done) => `
+    <div class="list-item" onclick="location.hash='#/fruit/it/${esc(e.id)}'">
+      <div class="li-main"><div class="li-title">${fruitLine(e)}</div>
+        <div class="li-sub">${esc(fmtStamp(e.createdAt))} · Record by: ${esc(e.recordedBy)} · Supervisor: ${esc(e.supervisor)} · ${e.items.length} item(s)${done ? ` · Keyed in by ${esc(e.keyedInBy)}` : ''}</div></div>
+      <div class="li-meta">${statusPill(e)}<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); printFruitById('${esc(e.id)}')">Print</button></div></div>`;
+  STATE.fruitCache = [...p.entries, ...c.entries];
+  const pending = p.entries.slice().reverse();
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>Pending entries · Mixed fruit BB</h1><p>Open an entry to copy the item batches, correct quantities and key in the material documents.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="router()">Refresh</button></div>
+    <div class="card"><div class="card-title">Waiting for processing (${pending.length})</div>
+      ${pending.length ? pending.map(e => row(e, false)).join('') : '<div class="hint">Nothing waiting. All submissions have been processed.</div>'}</div>
+    <div class="card"><div class="card-title"><span>Recently processed</span><a class="btn btn-ghost btn-sm" href="#/fruit/records">All records</a></div>
+      ${c.entries.length ? c.entries.map(e => row(e, true)).join('') : '<div class="hint">No processed entries yet.</div>'}</div>`;
+}
+
+async function pageFruitDetail(m, token) {
+  const [res] = await Promise.all([api('mf-entries?id=' + encodeURIComponent(m[1])), loadFruit()]);
+  if (stale(token)) return;
+  STATE.fruitIt = JSON.parse(JSON.stringify(res.entry));
+  STATE.fruitForm = { matA: STATE.fruitIt.materialDocA || '', matB: STATE.fruitIt.materialDocB || '', by: STATE.fruitIt.keyedInBy || '' };
+  STATE.copied = {};
+  renderFruitDetail();
+}
+function renderFruitDetail() {
+  const e = STATE.fruitIt, F = STATE.fruitForm, done = e.status === 'completed';
+  const rows = e.items.length ? e.items.map((x, i) => `<tr><td class="mono" data-label="#">${i + 1}</td><td class="mono" data-label="PLU">${esc(x.plu)}</td><td data-label="Description">${esc(x.description)}</td>
+      <td class="mono" data-label="Material">${esc(x.material)}</td><td data-label="Unit">${esc(x.uom)}</td>
+      <td class="mono r" data-label="Qty">${done ? fmtQty(x.qty) : fruitQtyInput(x, i, 'onEditFruitQtyIT')}</td>
+      <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeFruitItemIT(${i})">Remove</button>`}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="7">No items. Add at least one.</td></tr>`;
+  document.getElementById('content').innerHTML = `
+    <a class="back-link" href="${done ? '#/fruit/records' : '#/fruit/it'}">&larr; Back to ${done ? 'records' : 'pending entries'}</a>
+    <div class="page-head"><div><h1>${fruitLine(e)}</h1><p>${esc(fmtStamp(e.createdAt))}</p></div>${statusPill(e)}</div>
+
+    <div class="card">
+      <div class="card-title">Submission details</div>
+      <div class="grid3">
+        <div class="field"><label>Date</label><input type="text" readonly value="${esc(fmtStamp(e.createdAt))}"/></div>
+        <div class="field"><label>Record by</label><input type="text" readonly value="${esc(e.recordedBy)}"/></div>
+        <div class="field"><label>Supervisor</label><input type="text" readonly value="${esc(e.supervisor)}"/></div>
+      </div>
+      <div class="divider-label">Fruit items</div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>#</th><th>PLU</th><th>Description</th><th>Material</th><th>Unit</th><th class="r">Qty</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${done ? '' : `${pluWidgetHTML('addFruitItemIT', false)}`}
+      <div class="divider-label">Mixed Fruit BB</div>
+      <div class="grid2">
+        <div class="field"><label for="itOutSel">Product</label>${outputSelectHTML('itOutSel', e.output.plu, fruitOutputs(), 'onEditFruitOutIT(this.value)', done)}</div>
+        <div class="field"><label for="itOutQty">Quantity (ea)</label>
+          <input id="itOutQty" type="number" inputmode="numeric" min="0" step="1" value="${esc(e.output.qty)}" oninput="STATE.fruitIt.output.qty=Number(this.value)||0" ${done ? 'disabled' : ''}/></div>
+      </div>
+      ${done ? '' : `<div class="hint">Changes are saved when you press Save corrections or Submit.</div><div class="btn-row"><button class="btn btn-outline" onclick="saveFruitCorrections()">Save corrections</button></div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>Copy batch</span></div>
+      <div class="hint">Copies the rows for pasting into SAP. Each batch has the rows you set below.</div>
+      <div class="tools"><div class="field" style="max-width:170px"><label for="batchSize">Rows per batch</label>
+        <input id="batchSize" type="number" inputmode="numeric" min="1" max="500" step="1" value="${batchSize()}" onchange="setBatchSize(this.value)"/></div></div>
+      <div id="batchList">${batchListHTML()}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Material documents and sign-off</div>
+      <div class="grid2">
+        <div class="field"><label for="fMatA">Material document A</label><input id="fMatA" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 4900111222" value="${esc(F.matA)}" oninput="STATE.fruitForm.matA=upperize(this)" ${done ? 'disabled' : ''}/></div>
+        <div class="field"><label for="fMatB">Material document B</label><input id="fMatB" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 1000011122" value="${esc(F.matB)}" oninput="STATE.fruitForm.matB=upperize(this)" ${done ? 'disabled' : ''}/></div>
+      </div>
+      <div class="field" style="max-width:300px;"><label for="fKeyBy">Key in by</label><input id="fKeyBy" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.fruitForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
+      <div class="btn-row">${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="fSubmitItBtn" onclick="submitFruitIT()">Submit</button>`}
+        <button class="btn btn-outline" onclick="printFruit(STATE.fruitIt)">Print</button></div>
+      ${done ? '' : `<div class="hint" style="margin-top:12px;">You can print at any time. Fields not filled in yet print blank.</div>`}
+    </div>`;
+}
+function onEditFruitQtyIT(i, v) { STATE.fruitIt.items[i].qty = Number(v) || 0; refreshBatches(); }
+function onEditFruitOutIT(plu) {
+  const o = fruitOutputs().find(x => x.plu === plu); if (o) STATE.fruitIt.output = { ...STATE.fruitIt.output, plu: o.plu, description: o.description, material: o.material, uom: o.uom };
+}
+function removeFruitItemIT(i) { STATE.fruitIt.items.splice(i, 1); renderFruitDetail(); }
+function addFruitItemIT() {
+  const it = readFruitInputs(); if (!it) return;
+  mergeFruitItem(STATE.fruitIt.items, it); renderFruitDetail();
+  document.getElementById('fPlu').focus();
+}
+function fruitPayloadIT() {
+  const e = STATE.fruitIt;
+  return { items: e.items.map(x => ({ plu: x.plu, qty: Number(x.qty) })), outputPlu: e.output.plu, outputQty: Number(e.output.qty) };
+}
+function checkFruitIT() {
+  const e = STATE.fruitIt;
+  if (!e.items.length) { toast('At least one item is required.', 'error'); return false; }
+  if (e.items.some(x => !(Number(x.qty) > 0) || (x.uom === 'EA' && !Number.isInteger(Number(x.qty))))) { toast('Check the item quantities: more than 0, and whole numbers for EA.', 'error'); return false; }
+  if (!(Number(e.output.qty) > 0) || !Number.isInteger(Number(e.output.qty))) { toast('Mixed Fruit BB quantity must be a whole number above 0.', 'error'); return false; }
+  return true;
+}
+async function saveFruitCorrections() {
+  if (!checkFruitIT()) return;
+  try { await api('mf-entries?id=' + encodeURIComponent(STATE.fruitIt.id), { method: 'PATCH', body: fruitPayloadIT() }); }
+  catch (err) { toast(err.message, 'error'); return; }
+  toast('Corrections saved.', 'success');
+}
+async function submitFruitIT() {
+  const e = STATE.fruitIt, F = STATE.fruitForm;
+  if (!checkFruitIT()) return;
+  if (!F.matA.trim() || !F.matB.trim()) { toast('Both material document fields are required.', 'error'); return; }
+  if (!F.by.trim()) { toast('Enter who is keying this in.', 'error'); return; }
+  const btn = document.getElementById('fSubmitItBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await api('mf-entries?id=' + encodeURIComponent(e.id), { method: 'PATCH', body: { ...fruitPayloadIT(), complete: { materialDocA: F.matA, materialDocB: F.matB, keyedInBy: F.by } } });
+    STATE.fruitIt = res.entry;
+  } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Submit'; return; }
+  toast('Entry processed.', 'success'); refreshBadge(); renderFruitDetail();
+}
+
+// ---- Copy batch ----
+const batchSize = () => Math.min(Math.max(parseInt(localStorage.getItem('fprs:batchSize'), 10) || 12, 1), 500);
+function setBatchSize(v) {
+  const n = Math.min(Math.max(parseInt(v, 10) || 12, 1), 500);
+  try { localStorage.setItem('fprs:batchSize', String(n)); } catch (e) {}
+  document.getElementById('batchSize').value = n; STATE.copied = {}; refreshBatches();
+}
+function refreshBatches() { const el = document.getElementById('batchList'); if (el) el.innerHTML = batchListHTML(); }
+function batchListHTML() {
+  const e = STATE.fruitIt, size = batchSize(), n = e.items.length;
+  if (!n) return '<div class="hint">No items to copy.</div>';
+  const btns = (key) => `
+    <button class="btn btn-outline btn-sm" onclick="copyBatch('${key}','both')">PLU + Qty</button>
+    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','plu')">PLU</button>
+    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','material')">Material</button>
+    <button class="btn btn-ghost btn-sm" onclick="copyBatch('${key}','qty')">Qty</button>`;
+  let html = '';
+  for (let b = 0, from = 0; from < n; b++, from += size) {
+    const to = Math.min(n, from + size);
+    html += `<div class="batch"><div class="batch-info"><strong>Batch ${b + 1}</strong> <span class="li-sub">rows ${from + 1}–${to} · ${to - from} item${to - from === 1 ? '' : 's'}</span>
+      ${STATE.copied[b] ? `<span class="pill done">${ICON.check}Copied</span>` : ''}</div><div class="batch-btns">${btns(b)}</div></div>`;
+  }
+  html += `<div class="batch out"><div class="batch-info"><strong>Mixed Fruit BB</strong> <span class="li-sub">${esc(e.output.description)} · ${fmtQty(e.output.qty)} ${uomLabel(e.output.uom)}</span>
+      ${STATE.copied.out ? `<span class="pill done">${ICON.check}Copied</span>` : ''}</div><div class="batch-btns">${btns('out')}</div></div>`;
+  return html;
+}
+async function copyBatch(key, mode) {
+  const e = STATE.fruitIt, size = batchSize();
+  const rows = key === 'out' ? [e.output] : e.items.slice(key * size, key * size + size);
+  const col = { plu: r => r.plu, material: r => r.material, qty: r => fmtQty(r.qty), both: r => `${r.plu}\t${fmtQty(r.qty)}` }[mode];
+  try { await navigator.clipboard.writeText(rows.map(col).join('\n')); }
+  catch (err) { toast('Could not copy – your browser blocked clipboard access.', 'error'); return; }
+  STATE.copied[key] = true; refreshBatches();
+  toast(key === 'out' ? 'Copied Mixed Fruit BB row.' : `Copied batch ${Number(key) + 1} (${rows.length} row${rows.length === 1 ? '' : 's'}).`, 'success');
+}
+
+/* ---------- Fruit: Records ---------- */
+async function pageFruitRecords(_, token) {
+  const R = STATE.fruitRec; if (!R.month) R.month = monthKey(Date.now());
+  await loadFruitRecords(token);
+}
+async function loadFruitRecords(token) {
+  const R = STATE.fruitRec;
+  const res = await api(`mf-entries?month=${R.month}&limit=2000`);
+  if (token !== undefined && stale(token)) return;
+  R.entries = res.entries.slice().reverse(); STATE.fruitCache = R.entries; renderFruitRecords();
+}
+function fruitRecordsFiltered() {
+  const R = STATE.fruitRec, q = R.q.trim().toLowerCase();
+  return R.entries.filter(e => (R.status === 'all' || e.status === R.status) && (!q ||
+    [e.recordedBy, e.supervisor, e.output.description, e.materialDocA, e.materialDocB, e.keyedInBy, ...e.items.map(i => i.description + ' ' + i.plu)].join(' ').toLowerCase().includes(q)));
+}
+function renderFruitRecords() {
+  const R = STATE.fruitRec;
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h1>Records · Mixed fruit BB</h1><p>Every submission for the selected month, oldest first.</p></div>
+      <button class="btn btn-primary" onclick="exportFruitCsv()">Export CSV</button></div>
+    <div class="card">
+      <div class="tools">
+        <div class="field"><label for="frMonth">Month</label><input id="frMonth" type="month" value="${esc(R.month)}" onchange="onFruitRecMonth(this.value)"/></div>
+        <div class="field"><label for="frStatus">Status</label><select id="frStatus" onchange="STATE.fruitRec.status=this.value;renderFruitRecordsTable()">
+          ${[['all','All'],['pending','Pending'],['completed','Processed']].map(([v, l]) => `<option value="${v}" ${R.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field" style="flex:1;min-width:200px;"><label for="frSearch">Search</label><input id="frSearch" type="search" placeholder="Name, fruit, PLU, document…" value="${esc(R.q)}" oninput="STATE.fruitRec.q=this.value;renderFruitRecordsTable()"/></div>
+      </div>
+      <div id="frSummary" class="hint"></div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>Date</th><th>Record by</th><th>Supervisor</th><th>Items</th><th>Mixed Fruit BB</th><th>Material docs</th><th>Key in</th><th>Status</th><th></th></tr></thead>
+        <tbody id="frBody"></tbody></table></div>
+    </div>`;
+  renderFruitRecordsTable();
+}
+function renderFruitRecordsTable() {
+  const list = fruitRecordsFiltered(), body = document.getElementById('frBody'); if (!body) return;
+  document.getElementById('frSummary').textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'} in ${monthLabel(STATE.fruitRec.month)} · ${list.reduce((s, e) => s + e.items.length, 0)} fruit lines`;
+  body.innerHTML = list.length ? list.map(e => `
+    <tr class="clickable" onclick="location.hash='#/fruit/it/${esc(e.id)}'">
+      <td class="mono" data-label="Date" style="white-space:nowrap">${esc(fmtStamp(e.createdAt))}</td><td data-label="Record by">${esc(e.recordedBy)}</td><td data-label="Supervisor">${esc(e.supervisor)}</td>
+      <td data-label="Items">${e.items.length} item${e.items.length === 1 ? '' : 's'}<div class="sub-mono">${esc(e.items.slice(0, 2).map(i => i.description).join(', '))}${e.items.length > 2 ? '…' : ''}</div></td>
+      <td data-label="Mixed Fruit BB">${esc(e.output.description)}<div class="mono sub-mono">${fmtQty(e.output.qty)} ${uomLabel(e.output.uom)}</div></td>
+      <td class="mono" data-label="Material docs">${esc([e.materialDocA, e.materialDocB].filter(Boolean).join(' / '))}</td>
+      <td data-label="Key in">${e.status === 'completed' ? esc(e.keyedInBy) + `<div class="mono sub-mono">${esc(fmtStamp(e.keyedInAt))}</div>` : ''}</td>
+      <td data-label="Status">${statusPill(e)}</td>
+      <td class="r" data-label=""><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); printFruitById('${esc(e.id)}')">Print</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="9">No entries match. Try another month or clear the search.</td></tr>`;
+}
+async function onFruitRecMonth(v) { if (!v) return; STATE.fruitRec.month = v; try { await loadFruitRecords(); } catch (err) { toast(err.message, 'error'); } }
+function exportFruitCsv() {
+  const list = fruitRecordsFiltered();
+  if (!list.length) { toast('Nothing to export.', 'error'); return; }
+  const H = ['Date','Record By','Supervisor','Line','PLU Code','Material','Description','Unit','Quantity','Material Document A','Material Document B','Key By','Date Key In','Entry ID'];
+  const out = [H];
+  list.forEach(e => {
+    e.items.forEach((x, i) => out.push([i === 0 ? fmtStamp(e.createdAt) : '', i === 0 ? e.recordedBy : '', i === 0 ? e.supervisor : '', 'Item', x.plu, x.material, x.description, x.uom, x.qty, '', '', '', '', e.id]));
+    out.push(['', '', '', 'Mixed Fruit BB', e.output.plu, e.output.material, e.output.description, e.output.uom, e.output.qty, e.materialDocA, e.materialDocB, e.keyedInBy, fmtStamp(e.keyedInAt), e.id]);
+  });
+  downloadCsv(out, `Mixed Fruit BB ${STATE.fruitRec.month}.csv`);
 }
 
 /* ============================= ADMIN ============================= */
-async function pageAdmin(_, token) {
-  await loadItems();
-  if (stale(token)) return;
-  renderAdmin();
-}
 function isAdmin() { return !!sessionStorage.getItem('fprs:admin'); }
-function renderAdmin() {
-  if (!isAdmin()) {
-    document.getElementById('content').innerHTML = `
-      <div class="login-wrap"><div class="card">
-        <div class="card-title">Admin access</div>
-        <div class="field"><label for="adminPw">Password</label><input id="adminPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') tryAdminLogin();"/></div>
-        <button class="btn btn-primary btn-block" onclick="tryAdminLogin()">Unlock</button>
-      </div></div>`;
-    return;
-  }
-  STATE.admin = { base: ITEMS.base.map(i => ({ ...i })), cut: ITEMS.cut.map(i => ({ ...i })) };
+function adminErr(err) {
+  if (/password/i.test(err.message)) { sessionStorage.removeItem('fprs:admin'); router(); }
+  toast(err.message, 'error');
+}
+function renderAdminLogin() {
   document.getElementById('content').innerHTML = `
-    <div class="page-head"><div><h1>Admin</h1><p>PLU masterlist and costs for chicken cut parts.</p></div>
+    <div class="login-wrap"><div class="card">
+      <div class="card-title">Admin access</div>
+      <div class="field"><label for="adminPw">Password</label><input id="adminPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') tryAdminLogin();"/></div>
+      <button class="btn btn-primary btn-block" onclick="tryAdminLogin()">Unlock</button>
+    </div></div>`;
+}
+async function tryAdminLogin() {
+  const pw = document.getElementById('adminPw').value;
+  try { await api('admin-login', { method: 'POST', body: { password: pw } }); }
+  catch (err) { toast(err.message, 'error'); return; }
+  sessionStorage.setItem('fprs:admin', pw); router();
+}
+function adminLock() { sessionStorage.removeItem('fprs:admin'); router(); }
+function adminTopHTML(active) {
+  return `
+    <div class="page-head"><div><h1>Admin</h1><p>Manage master data and correct submitted records.</p></div>
       <button class="btn btn-ghost btn-sm" onclick="adminLock()">Lock admin</button></div>
-    ${['base','cut'].map(t => `
+    <div class="admin-boxes">
+      <a class="admin-box ${active === 'master' ? 'on' : ''}" href="#/admin"><strong>Master data</strong><span>PLU lists, costs and units</span></a>
+      <a class="admin-box ${active === 'records' ? 'on' : ''}" href="#/admin/records"><strong>Records adjustment</strong><span>Edit or delete pending and completed entries</span></a>
+    </div>`;
+}
+function confirmModal(title, message, label, cb) {
+  const m = document.getElementById('modalRoot'); window.__confirmCb = cb;
+  m.innerHTML = `<div class="modal-box" role="alertdialog"><h3>${esc(title)}</h3><p>${esc(message)}</p>
+    <div class="btn-row" style="justify-content:flex-end"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-danger" onclick="closeModal();window.__confirmCb()">${esc(label)}</button></div></div>`;
+  m.classList.add('open');
+}
+
+/* ---------- Master data ---------- */
+async function pageAdmin(_, token) {
+  await Promise.all([loadItems(), loadFruit()]);
+  if (stale(token)) return;
+  renderAdminMaster();
+}
+function renderAdminMaster() {
+  if (!isAdmin()) { renderAdminLogin(); return; }
+  const L = STATE.adminList;
+  document.getElementById('content').innerHTML = adminTopHTML('master') + `
+    <div class="seg" role="tablist">
+      <button class="${L === 'chicken' ? 'on' : ''}" onclick="STATE.adminList='chicken';renderAdminMaster()">Chicken cut parts</button>
+      <button class="${L === 'fruit' ? 'on' : ''}" onclick="STATE.adminList='fruit';renderAdminMaster()">Mixed fruit BB</button>
+    </div><div id="adminBody"></div>`;
+  L === 'chicken' ? renderAdminChicken() : renderAdminFruit();
+}
+function renderAdminChicken() {
+  STATE.admin = { base: ITEMS.base.map(i => ({ ...i })), cut: ITEMS.cut.map(i => ({ ...i })) };
+  document.getElementById('adminBody').innerHTML = `
+    ${['base', 'cut'].map(t => `
     <div class="card"><div class="card-title">${t === 'base' ? 'Base products' : 'Cut parts'}</div>
       <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
       <tbody id="admin-${t}"></tbody></table></div></div>`).join('')}
@@ -1012,8 +1524,7 @@ function renderAdmin() {
   renderAdminTable('base'); renderAdminTable('cut');
 }
 function renderAdminTable(type) {
-  const body = document.getElementById('admin-' + type);
-  const list = STATE.admin[type];
+  const body = document.getElementById('admin-' + type), list = STATE.admin[type];
   body.innerHTML = list.length ? list.map((i, idx) => `
     <tr style="${i.active ? '' : 'color:var(--ink-3)'}"><td class="mono" data-label="PLU">${esc(i.plu)}</td><td data-label="Description">${esc(i.description)}</td><td class="mono" data-label="Material">${esc(i.material)}</td>
     <td class="r" data-label="Cost"><input class="inline-input" type="number" step="0.01" value="${esc(i.cost)}" aria-label="Cost for ${esc(i.description)}" oninput="STATE.admin['${type}'][${idx}].cost=this.value"/></td>
@@ -1022,17 +1533,6 @@ function renderAdminTable(type) {
       <button class="btn btn-ghost btn-sm" onclick="toggleItem('${type}', ${idx})">${i.active ? 'Hide' : 'Show'}</button></td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="6">No items yet.</td></tr>`;
 }
-function adminErr(err) {
-  if (/password/i.test(err.message)) { sessionStorage.removeItem('fprs:admin'); renderAdmin(); }
-  toast(err.message, 'error');
-}
-async function tryAdminLogin() {
-  const pw = document.getElementById('adminPw').value;
-  try { await api('admin-login', { method: 'POST', body: { password: pw } }); }
-  catch (err) { toast(err.message, 'error'); return; }
-  sessionStorage.setItem('fprs:admin', pw); renderAdmin();
-}
-function adminLock() { sessionStorage.removeItem('fprs:admin'); renderAdmin(); }
 async function saveItemCost(type, idx) {
   const i = STATE.admin[type][idx], cost = Number(i.cost);
   if (!Number.isFinite(cost) || cost < 0) { toast('Enter a valid cost.', 'error'); return; }
@@ -1044,7 +1544,7 @@ async function toggleItem(type, idx) {
   const i = STATE.admin[type][idx];
   try { await api('items', { method: 'PATCH', admin: true, body: { type, plu: i.plu, active: !i.active } }); }
   catch (err) { adminErr(err); return; }
-  await loadItems(); renderAdmin();
+  await loadItems(); renderAdminMaster();
   toast(i.active ? `${i.description} hidden from new entries.` : `${i.description} is available again.`, 'success');
 }
 async function addAdminItem() {
@@ -1053,7 +1553,260 @@ async function addAdminItem() {
   if (!body.plu || !body.material || !body.description || !body.cost) { toast('Fill in every field for the new item.', 'error'); return; }
   try { await api('items', { method: 'POST', admin: true, body }); }
   catch (err) { adminErr(err); return; }
-  toast('Item added.', 'success'); await loadItems(); renderAdmin();
+  toast('Item added.', 'success'); await loadItems(); renderAdminMaster();
+}
+
+function renderAdminFruit() {
+  document.getElementById('adminBody').innerHTML = `
+    <div class="card"><div class="card-title">Mixed fruit BB items</div>
+      <div class="hint">Scanned labels in the form 28 + 5-digit PLU + 11 digits are read as the 5-digit PLU, so 5-digit PLUs work with the scanner.</div>
+      <div class="tools"><div class="field" style="flex:1;min-width:220px"><label for="fruitSearch">Search</label>
+        <input id="fruitSearch" type="search" placeholder="PLU, material or description" value="${esc(STATE.fruitSearch)}" oninput="STATE.fruitSearch=this.value;renderAdminFruitTable()"/></div></div>
+      <div id="fruitCount" class="hint"></div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th>Unit</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody id="fruitBody"></tbody></table></div>
+    </div>
+    <div class="card"><div class="card-title">Add new item</div>
+      <div class="grid3">
+        <div class="field"><label for="nfPlu">PLU code</label><input id="nfPlu" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 50106"/></div>
+        <div class="field"><label for="nfMat">Material code</label><input id="nfMat" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 10037333"/></div>
+        <div class="field"><label for="nfUom">Unit</label><select id="nfUom"><option value="KG">KG</option><option value="EA">EA</option></select></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="nfDesc">Description</label><input id="nfDesc" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. PAPAYA" oninput="upperize(this)"/></div>
+        <div class="field"><label for="nfRole">Type</label><select id="nfRole"><option value="input">Fruit item</option><option value="output">Mixed Fruit BB product</option></select></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="addFruitMaster()">+ Add item</button></div>
+    </div>`;
+  renderAdminFruitTable();
+}
+function renderAdminFruitTable() {
+  const q = STATE.fruitSearch.trim().toLowerCase(), LIMIT = 60;
+  const list = FRUIT.filter(i => !q || (i.plu + ' ' + i.material + ' ' + i.description).toLowerCase().includes(q));
+  document.getElementById('fruitCount').textContent = list.length > LIMIT ? `Showing ${LIMIT} of ${list.length} items. Use search to narrow down.` : `${list.length} item${list.length === 1 ? '' : 's'}`;
+  document.getElementById('fruitBody').innerHTML = list.length ? list.slice(0, LIMIT).map(i => `
+    <tr style="${i.active ? '' : 'color:var(--ink-3)'}"><td class="mono" data-label="PLU">${esc(i.plu)}</td><td data-label="Description">${esc(i.description)}</td><td class="mono" data-label="Material">${esc(i.material)}</td>
+    <td data-label="Unit">${esc(i.uom)}</td><td data-label="Type">${i.role === 'output' ? 'Mixed Fruit BB product' : 'Fruit item'}</td>
+    <td data-label="Status">${i.active ? '<span class="pill done">' + ICON.check + 'Active</span>' : '<span class="pill pending">Hidden</span>'}</td>
+    <td class="r" data-label=""><button class="btn btn-ghost btn-sm" onclick="toggleFruitItem('${esc(i.plu)}')">${i.active ? 'Hide' : 'Show'}</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="7">No items match.</td></tr>`;
+}
+async function toggleFruitItem(plu) {
+  const i = FRUIT.find(x => x.plu === plu);
+  try { await api('mf-items', { method: 'PATCH', admin: true, body: { plu, active: !i.active } }); }
+  catch (err) { adminErr(err); return; }
+  i.active = !i.active; renderAdminFruitTable();
+  toast(i.active ? `${i.description} is available again.` : `${i.description} hidden from new entries.`, 'success');
+}
+async function addFruitMaster() {
+  const g = (id) => document.getElementById(id).value.trim();
+  const body = { plu: g('nfPlu'), material: g('nfMat'), description: g('nfDesc'), uom: g('nfUom'), role: g('nfRole') };
+  if (!body.plu || !body.material || !body.description) { toast('Fill in every field for the new item.', 'error'); return; }
+  try { await api('mf-items', { method: 'POST', admin: true, body }); }
+  catch (err) { adminErr(err); return; }
+  toast('Item added.', 'success'); await loadFruit(); renderAdminMaster();
+}
+
+/* ---------- Records adjustment ---------- */
+async function pageAdminRecords(_, token) {
+  if (!isAdmin()) { renderAdminLogin(); return; }
+  const A = STATE.adj; if (!A.month) A.month = monthKey(Date.now());
+  await loadAdj(token);
+}
+async function loadAdj(token) {
+  const A = STATE.adj;
+  const res = await api(`${A.type === 'chicken' ? 'entries' : 'mf-entries'}?month=${A.month}&limit=2000`);
+  if (token !== undefined && stale(token)) return;
+  A.entries = res.entries.slice().reverse(); renderAdminRecords();
+}
+function adjFiltered() {
+  const A = STATE.adj, q = A.q.trim().toLowerCase();
+  return A.entries.filter(e => (A.status === 'all' || e.status === A.status) && (!q || JSON.stringify(e).toLowerCase().includes(q)));
+}
+function renderAdminRecords() {
+  const A = STATE.adj;
+  document.getElementById('content').innerHTML = adminTopHTML('records') + `
+    <div class="card">
+      <div class="tools">
+        <div class="field"><label for="adjType">Record</label><select id="adjType" onchange="onAdjType(this.value)">
+          <option value="chicken" ${A.type === 'chicken' ? 'selected' : ''}>Chicken cut parts</option><option value="fruit" ${A.type === 'fruit' ? 'selected' : ''}>Mixed fruit BB</option></select></div>
+        <div class="field"><label for="adjMonth">Month</label><input id="adjMonth" type="month" value="${esc(A.month)}" onchange="onAdjMonth(this.value)"/></div>
+        <div class="field"><label for="adjStatus">Status</label><select id="adjStatus" onchange="STATE.adj.status=this.value;renderAdjTable()">
+          ${[['all','All'],['pending','Pending'],['completed','Processed']].map(([v, l]) => `<option value="${v}" ${A.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field" style="flex:1;min-width:200px"><label for="adjSearch">Search</label><input id="adjSearch" type="search" placeholder="Name, product, document…" value="${esc(A.q)}" oninput="STATE.adj.q=this.value;renderAdjTable()"/></div>
+      </div>
+      <div id="adjSummary" class="hint"></div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>Date</th><th>${A.type === 'chicken' ? 'Staff' : 'Record by'}</th><th>Supervisor</th><th>Summary</th><th>Status</th><th></th></tr></thead><tbody id="adjBody"></tbody></table></div>
+    </div>`;
+  renderAdjTable();
+}
+function renderAdjTable() {
+  const A = STATE.adj, list = adjFiltered(), body = document.getElementById('adjBody'); if (!body) return;
+  document.getElementById('adjSummary').textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'} in ${monthLabel(A.month)}. Pick Edit to change an entry or Delete to remove it.`;
+  body.innerHTML = list.length ? list.map(e => {
+    const who = A.type === 'chicken' ? e.staff : e.recordedBy;
+    const sum = A.type === 'chicken' ? `${esc(e.base.description)} · ${fmtQty(e.base.qty)} kg<div class="sub-mono">${e.cutParts.length} cut part(s)</div>` : `${esc(e.output.description)} · ${fmtQty(e.output.qty)} ea<div class="sub-mono">${e.items.length} item(s)</div>`;
+    return `<tr><td class="mono" data-label="Date" style="white-space:nowrap">${esc(fmtStamp(e.createdAt))}</td><td data-label="${A.type === 'chicken' ? 'Staff' : 'Record by'}">${esc(who)}</td><td data-label="Supervisor">${esc(e.supervisor)}</td>
+      <td data-label="Summary">${sum}</td><td data-label="Status">${statusPill(e)}</td>
+      <td class="r" data-label="" style="white-space:nowrap"><a class="btn btn-outline btn-sm" href="#/admin/records/${A.type}/${esc(e.id)}">Edit</a>
+        <button class="btn btn-danger btn-sm" onclick="askDeleteEntry('${A.type}','${esc(e.id)}')">Delete</button></td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="6">No entries match. Try another month or clear the search.</td></tr>`;
+}
+async function onAdjType(v) { STATE.adj.type = v; STATE.adj.entries = []; try { await loadAdj(); } catch (err) { toast(err.message, 'error'); } }
+async function onAdjMonth(v) { if (!v) return; STATE.adj.month = v; try { await loadAdj(); } catch (err) { toast(err.message, 'error'); } }
+function askDeleteEntry(type, id, backToList) {
+  const list = type === 'chicken' ? STATE.adj.entries : STATE.adj.entries;
+  const e = (backToList ? (type === 'chicken' ? STATE.adjC : STATE.adjF) : list.find(x => x.id === id));
+  const label = e ? `${fmtStamp(e.createdAt)} by ${type === 'chicken' ? e.staff : e.recordedBy}` : id;
+  confirmModal('Delete this entry?', `The ${type === 'chicken' ? 'chicken cut parts' : 'mixed fruit BB'} entry from ${label} will be permanently removed. This cannot be undone.`, 'Delete entry', async () => {
+    try { await api(`admin-entries?type=${type}&id=${encodeURIComponent(id)}`, { method: 'DELETE', admin: true }); }
+    catch (err) { adminErr(err); return; }
+    toast('Entry deleted.', 'success');
+    if (backToList) location.hash = '#/admin/records'; else { STATE.adj.entries = STATE.adj.entries.filter(x => x.id !== id); renderAdjTable(); refreshBadge(); }
+  });
+}
+
+async function pageAdminEdit(m, token) {
+  if (!isAdmin()) { renderAdminLogin(); return; }
+  const type = m[1], id = m[2];
+  const [res] = await Promise.all([api((type === 'chicken' ? 'entries' : 'mf-entries') + '?id=' + encodeURIComponent(id)), loadItems(), loadFruit()]);
+  if (stale(token)) return;
+  const e = JSON.parse(JSON.stringify(res.entry)); e.reopen = false;
+  if (type === 'chicken') { STATE.adjC = e; renderAdjChicken(); } else { STATE.adjF = e; renderAdjFruit(); }
+}
+const adjBack = `<a class="back-link" href="#/admin/records">&larr; Back to records adjustment</a>`;
+const reopenHTML = (fn) => `<label class="check"><input type="checkbox" onchange="${fn}(this.checked)"/> Set back to pending (clears the material documents and sign-off)</label>`;
+
+/* ----- chicken edit ----- */
+function renderAdjChicken() {
+  const e = STATE.adjC, done = e.status === 'completed';
+  const baseList = activeItems('base').slice(); if (!baseList.find(i => i.plu === e.base.plu)) baseList.push({ plu: e.base.plu, description: e.base.description });
+  const cutOpts = activeItems('cut').map(i => `<option value="${esc(i.plu)}">${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
+  const rows = e.cutParts.length ? e.cutParts.map((c, i) => `<tr><td class="mono" data-label="PLU">${esc(c.plu)}</td><td data-label="Description">${esc(c.description)}</td>
+      <td class="mono r" data-label="Qty (kg)"><input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onAdjCQty(${i}, this.value)"/></td>
+      <td class="r" data-label=""><button class="btn btn-danger btn-sm" onclick="removeAdjC(${i})">Remove</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="4">No cut parts. Add at least one.</td></tr>`;
+  document.getElementById('content').innerHTML = adjBack + `
+    <div class="page-head"><div><h1>Edit entry · Chicken cut parts</h1><p>${esc(fmtStamp(e.createdAt))}</p></div>${statusPill(e)}</div>
+    <div class="card"><div class="card-title">Submission</div>
+      <div class="grid2">
+        <div class="field"><label for="acStaff">Staff</label><input id="acStaff" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.staff)}" oninput="STATE.adjC.staff=upperize(this)"/></div>
+        <div class="field"><label for="acSup">Supervisor</label><input id="acSup" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.supervisor)}" oninput="STATE.adjC.supervisor=upperize(this)"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="acBase">Base product</label><select id="acBase" onchange="STATE.adjC.base.plu=this.value">${baseList.map(i => `<option value="${esc(i.plu)}" ${i.plu === e.base.plu ? 'selected' : ''}>${esc(i.plu)} – ${esc(i.description)}</option>`).join('')}</select></div>
+        <div class="field"><label for="acBaseQty">Base quantity (kg)</label><input id="acBaseQty" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(e.base.qty)}" oninput="onAdjCBaseQty(this.value)"/></div>
+      </div>
+      <div class="divider-label">Cut parts</div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th class="r">Qty (kg)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="grid3">
+        <div class="field"><label for="acAddPlu">Add cut part – PLU</label><select id="acAddPlu"><option value="">Select PLU…</option>${cutOpts}</select></div>
+        <div class="field"><label for="acAddQty">Quantity (kg)</label><input id="acAddQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"/></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="addAdjC()">+ Add cut part</button></div>
+      </div>
+      <div class="summary-strip" id="acSummary"></div>
+    </div>
+    ${done ? `<div class="card"><div class="card-title">Material documents and sign-off</div><div id="acDocs"></div>${reopenHTML('onAdjCReopen')}
+      ${e.calculated ? '<div class="hint" style="margin-top:10px">Changing quantities or the base product clears the stored valuation for this entry.</div>' : ''}</div>` : ''}
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveAdjC()">Save changes</button>
+      <button class="btn btn-danger" onclick="askDeleteEntry('chicken','${esc(e.id)}', true)">Delete entry</button><a class="btn btn-ghost" href="#/admin/records">Cancel</a></div>`;
+  recalcAdjC();
+}
+function recalcAdjC() {
+  const e = STATE.adjC;
+  e.totalCutQty = round2(e.cutParts.reduce((s, c) => s + Number(c.qty || 0), 0));
+  e.difference = round2((Number(e.base.qty) || 0) - e.totalCutQty);
+  const s = document.getElementById('acSummary'); if (s) s.innerHTML = itSummaryHTML(e);
+  const d = document.getElementById('acDocs'); if (d) {
+    if (e.reopen) { d.innerHTML = '<div class="hint">The entry will go back to pending when you save.</div>'; return; }
+    const keep = (id) => (document.getElementById(id) ? document.getElementById(id).value : null);
+    d.innerHTML = `<div class="grid2">
+      <div class="field"><label for="acA">Material document A</label><input id="acA" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.materialDocA)}" oninput="STATE.adjC.materialDocA=upperize(this)"/></div>
+      <div class="field"><label for="acB">Material document B</label><input id="acB" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.materialDocB)}" oninput="STATE.adjC.materialDocB=upperize(this)"/></div></div>
+      <div class="grid2">${e.difference !== 0 ? `<div class="field"><label for="acW">Weight discrepancy material doc (${fmtQty(e.difference)} kg)</label><input id="acW" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.weightDiscrepancyDoc)}" oninput="STATE.adjC.weightDiscrepancyDoc=upperize(this)"/></div>` : ''}
+      <div class="field"><label for="acBy">Key in by</label><input id="acBy" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.keyedInBy)}" oninput="STATE.adjC.keyedInBy=upperize(this)"/></div></div>`;
+  }
+}
+function onAdjCBaseQty(v) { STATE.adjC.base.qty = Number(v) || 0; recalcAdjC(); }
+function onAdjCQty(i, v) { STATE.adjC.cutParts[i].qty = Number(v) || 0; recalcAdjC(); }
+function removeAdjC(i) { STATE.adjC.cutParts.splice(i, 1); renderAdjChicken(); }
+function onAdjCReopen(v) { STATE.adjC.reopen = v; recalcAdjC(); }
+function addAdjC() {
+  const e = STATE.adjC, plu = document.getElementById('acAddPlu').value, qty = Number(document.getElementById('acAddQty').value);
+  if (!plu) { toast('Select a cut part PLU first.', 'error'); return; }
+  if (!(qty > 0)) { toast('Enter a valid quantity.', 'error'); return; }
+  const item = findItem('cut', plu), ex = e.cutParts.find(c => c.plu === plu);
+  if (ex) ex.qty = round2(Number(ex.qty) + qty); else e.cutParts.push({ plu, description: item.description, material: item.material, qty: round2(qty) });
+  renderAdjChicken();
+}
+async function saveAdjC() {
+  const e = STATE.adjC, done = e.status === 'completed';
+  if (!e.staff.trim() || !e.supervisor.trim()) { toast('Staff and supervisor are required.', 'error'); return; }
+  if (!e.cutParts.length || e.cutParts.some(c => !(Number(c.qty) > 0)) || !(Number(e.base.qty) > 0)) { toast('All quantities must be greater than 0, with at least one cut part.', 'error'); return; }
+  if (e.difference < 0) { showModal('Negative weight difference', 'Total cut parts quantity cannot exceed the base product quantity.'); return; }
+  if (done && !e.reopen) {
+    if (!e.materialDocA.trim() || !e.materialDocB.trim() || !e.keyedInBy.trim()) { toast('Material documents A and B and Key in by are required for a processed entry.', 'error'); return; }
+    if (e.difference !== 0 && !e.weightDiscrepancyDoc.trim()) { toast('Weight discrepancy material document is required.', 'error'); return; }
+  }
+  try {
+    await api('admin-entries?type=chicken&id=' + encodeURIComponent(e.id), { method: 'PUT', admin: true, body: {
+      staff: e.staff, supervisor: e.supervisor, basePlu: e.base.plu, baseQty: Number(e.base.qty), cutParts: e.cutParts.map(c => ({ plu: c.plu, qty: Number(c.qty) })),
+      materialDocA: e.materialDocA, materialDocB: e.materialDocB, weightDiscrepancyDoc: e.weightDiscrepancyDoc, keyedInBy: e.keyedInBy, reopen: !!e.reopen } });
+  } catch (err) { adminErr(err); return; }
+  toast('Entry updated.', 'success'); refreshBadge(); location.hash = '#/admin/records';
+}
+
+/* ----- fruit edit ----- */
+function renderAdjFruit() {
+  const e = STATE.adjF, done = e.status === 'completed';
+  const outs = fruitOutputs().slice(); if (!outs.find(o => o.plu === e.output.plu)) outs.push({ plu: e.output.plu, description: e.output.description });
+  const rows = e.items.length ? e.items.map((x, i) => `<tr><td class="mono" data-label="#">${i + 1}</td><td class="mono" data-label="PLU">${esc(x.plu)}</td><td data-label="Description">${esc(x.description)}</td><td data-label="Unit">${esc(x.uom)}</td>
+      <td class="mono r" data-label="Qty">${fruitQtyInput(x, i, 'onAdjFQty')}</td><td class="r" data-label=""><button class="btn btn-danger btn-sm" onclick="removeAdjF(${i})">Remove</button></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="6">No items. Add at least one.</td></tr>`;
+  document.getElementById('content').innerHTML = adjBack + `
+    <div class="page-head"><div><h1>Edit entry · Mixed fruit BB</h1><p>${esc(fmtStamp(e.createdAt))}</p></div>${statusPill(e)}</div>
+    <div class="card"><div class="card-title">Submission</div>
+      <div class="grid2">
+        <div class="field"><label for="afBy">Record by</label><input id="afBy" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.recordedBy)}" oninput="STATE.adjF.recordedBy=upperize(this)"/></div>
+        <div class="field"><label for="afSup">Supervisor</label><input id="afSup" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.supervisor)}" oninput="STATE.adjF.supervisor=upperize(this)"/></div>
+      </div>
+      <div class="divider-label">Fruit items</div>
+      <div class="table-wrap"><table class="rt"><thead><tr><th>#</th><th>PLU</th><th>Description</th><th>Unit</th><th class="r">Qty</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${pluWidgetHTML('addAdjF', false)}
+      <div class="divider-label">Mixed Fruit BB</div>
+      <div class="grid2">
+        <div class="field"><label for="afOut">Product</label>${outputSelectHTML('afOut', e.output.plu, outs, 'onAdjFOut(this.value)', false)}</div>
+        <div class="field"><label for="afOutQty">Quantity (ea)</label><input id="afOutQty" type="number" inputmode="numeric" min="0" step="1" value="${esc(e.output.qty)}" oninput="STATE.adjF.output.qty=Number(this.value)||0"/></div>
+      </div>
+    </div>
+    ${done ? `<div class="card"><div class="card-title">Material documents and sign-off</div><div id="afDocs">${adjFDocsHTML()}</div>${reopenHTML('onAdjFReopen')}</div>` : ''}
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveAdjF()">Save changes</button>
+      <button class="btn btn-danger" onclick="askDeleteEntry('fruit','${esc(e.id)}', true)">Delete entry</button><a class="btn btn-ghost" href="#/admin/records">Cancel</a></div>`;
+}
+function adjFDocsHTML() {
+  const e = STATE.adjF;
+  if (e.reopen) return '<div class="hint">The entry will go back to pending when you save.</div>';
+  return `<div class="grid2">
+    <div class="field"><label for="afA">Material document A</label><input id="afA" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.materialDocA)}" oninput="STATE.adjF.materialDocA=upperize(this)"/></div>
+    <div class="field"><label for="afB">Material document B</label><input id="afB" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.materialDocB)}" oninput="STATE.adjF.materialDocB=upperize(this)"/></div></div>
+    <div class="field" style="max-width:300px"><label for="afKey">Key in by</label><input id="afKey" class="uc" autocapitalize="characters" spellcheck="false" type="text" value="${esc(e.keyedInBy)}" oninput="STATE.adjF.keyedInBy=upperize(this)"/></div>`;
+}
+function onAdjFQty(i, v) { STATE.adjF.items[i].qty = Number(v) || 0; }
+function removeAdjF(i) { STATE.adjF.items.splice(i, 1); renderAdjFruit(); }
+function onAdjFOut(plu) { const o = fruitOutputs().find(x => x.plu === plu); if (o) STATE.adjF.output = { ...STATE.adjF.output, plu: o.plu, description: o.description, material: o.material, uom: o.uom }; }
+function onAdjFReopen(v) { STATE.adjF.reopen = v; document.getElementById('afDocs').innerHTML = adjFDocsHTML(); }
+function addAdjF() { const it = readFruitInputs(); if (!it) return; mergeFruitItem(STATE.adjF.items, it); renderAdjFruit(); document.getElementById('fPlu').focus(); }
+async function saveAdjF() {
+  const e = STATE.adjF, done = e.status === 'completed';
+  if (!e.recordedBy.trim() || !e.supervisor.trim()) { toast('Record by and supervisor are required.', 'error'); return; }
+  if (!e.items.length || e.items.some(x => !(Number(x.qty) > 0) || (x.uom === 'EA' && !Number.isInteger(Number(x.qty))))) { toast('Check the item quantities: more than 0, and whole numbers for EA.', 'error'); return; }
+  if (!(Number(e.output.qty) > 0) || !Number.isInteger(Number(e.output.qty))) { toast('Mixed Fruit BB quantity must be a whole number above 0.', 'error'); return; }
+  if (done && !e.reopen && (!e.materialDocA.trim() || !e.materialDocB.trim() || !e.keyedInBy.trim())) { toast('Material documents A and B and Key in by are required for a processed entry.', 'error'); return; }
+  try {
+    await api('admin-entries?type=fruit&id=' + encodeURIComponent(e.id), { method: 'PUT', admin: true, body: {
+      recordedBy: e.recordedBy, supervisor: e.supervisor, items: e.items.map(x => ({ plu: x.plu, qty: Number(x.qty) })), outputPlu: e.output.plu, outputQty: Number(e.output.qty),
+      materialDocA: e.materialDocA, materialDocB: e.materialDocB, keyedInBy: e.keyedInBy, reopen: !!e.reopen } });
+  } catch (err) { adminErr(err); return; }
+  toast('Entry updated.', 'success'); refreshBadge(); location.hash = '#/admin/records';
 }
 
 /* ============================= START ============================= */

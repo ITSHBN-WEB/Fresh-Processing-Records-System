@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=.env scripts/dev-server.js",
-    "import:chicken": "node --env-file=.env scripts/import-chicken-csv.js"
+    "import:chicken": "node --env-file=.env scripts/import-chicken-csv.js",
+    "import:fruit": "node --env-file=.env scripts/import-fruit-masterlist.js"
   },
   "engines": {
     "node": ">=20"
