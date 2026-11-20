@@ -157,6 +157,10 @@ tr.clickable:hover td{background:var(--surface-alt);}
 .back-link:hover{text-decoration:underline;}
 .divider-label{margin:20px 0 12px;font-weight:600;font-size:14px;color:var(--ink-2);display:flex;align-items:center;gap:10px;}
 .divider-label::after{content:"";flex:1;height:1px;background:var(--line);}
+.divider-label.dl-act::after{display:none;}
+.divider-label .dl-line{flex:1;height:1px;background:var(--line);}
+.dl-actions{display:flex;gap:6px;align-items:center;}
+.dl-actions .btn{display:inline-flex;align-items:center;gap:5px;}
 .loading{text-align:center;padding:60px 20px;color:var(--ink-2);}
 .tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;}
 .tools .field{margin:0;}
@@ -703,7 +707,7 @@ async function pageChickenDetail(m, token) {
   const [res] = await Promise.all([api('entries?id=' + encodeURIComponent(m[1])), loadItems()]);
   if (stale(token)) return;
   STATE.it = JSON.parse(JSON.stringify(res.entry));
-  STATE.itCalc = STATE.it.calculated || null;
+  STATE.itCalc = STATE.it.calculated || null; STATE.itEditing = false; STATE.itSnap = null;
   STATE.itForm = {
     matA: STATE.it.materialDocA || '', matB: STATE.it.materialDocB || '', wd: STATE.it.weightDiscrepancyDoc || '',
     by: STATE.it.keyedInBy || '', sys: STATE.it.systemAmount != null ? String(STATE.it.systemAmount) : '',
@@ -711,14 +715,20 @@ async function pageChickenDetail(m, token) {
   renderITDetail();
 }
 
+function editBarHTML(title, editing, onEdit, onSave, onCancel) {
+  return `<div class="divider-label dl-act">${title}<span class="dl-line"></span><span class="dl-actions">` + (editing
+    ? `<button class="btn btn-primary btn-sm" onclick="${onSave}">Save</button><button class="btn btn-ghost btn-sm" onclick="${onCancel}">Cancel</button>`
+    : `<button class="btn btn-outline btn-sm" onclick="${onEdit}">${ICON_PENCIL} Edit</button>`) + `</span></div>`;
+}
 function renderITDetail() {
   const e = STATE.it, F = STATE.itForm;
   const done = e.status === 'completed';
+  const editing = !done && !!STATE.itEditing, ro = done || !editing;
   const cutOptions = activeItems('cut').map(i => `<option value="${esc(i.plu)}">${esc(i.plu)} – ${esc(i.description)}</option>`).join('');
   const cutRows = e.cutParts.length ? e.cutParts.map((c, idx) => `
     <tr><td class="mono" data-label="PLU">${esc(c.plu)}</td><td data-label="Description">${esc(c.description)}</td><td class="mono" data-label="Material">${esc(c.material)}</td>
-    <td class="mono r" data-label="Qty (kg)">${done ? fmtQty(c.qty) : `<input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onEditCutQtyIT(${idx}, this.value)"/>`}</td>
-    <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeCutPartIT(${idx})">Remove</button>`}</td></tr>`).join('')
+    <td class="mono r" data-label="Qty (kg)">${ro ? fmtQty(c.qty) : `<input class="inline-input" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(c.qty)}" aria-label="Quantity for ${esc(c.description)}" oninput="onEditCutQtyIT(${idx}, this.value)"/>`}</td>
+    <td class="r" data-label="">${ro ? '' : `<button class="btn btn-danger btn-sm" onclick="removeCutPartIT(${idx})">Remove</button>`}</td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="5">No cut parts. Add at least one.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
@@ -739,19 +749,18 @@ function renderITDetail() {
         <div class="field"><label>Material</label><input type="text" readonly value="${esc(e.base.material)}"/></div>
       </div>
       <div class="field" style="max-width:240px;"><label>Base quantity (kg)</label>
-        ${done ? `<input type="text" readonly value="${fmtQty(e.base.qty)}"/>` : `<input type="number" inputmode="decimal" min="0" step="0.01" value="${esc(e.base.qty)}" oninput="onEditBaseQtyIT(this.value)"/>`}</div>
-      ${done ? '' : `<div class="hint">Changes update the total and difference live. They are saved when you press Save corrections or Submit.</div>`}
+        ${ro ? `<input type="text" readonly value="${fmtQty(e.base.qty)}"/>` : `<input type="number" inputmode="decimal" min="0" step="0.01" value="${esc(e.base.qty)}" oninput="onEditBaseQtyIT(this.value)"/>`}</div>
+      ${editing ? `<div class="hint">Changes update the total and difference live. Press Save to keep them or Cancel to discard them.</div>` : ''}
 
-      <div class="divider-label">Cut parts</div>
+      ${done ? '<div class="divider-label">Cut parts</div>' : editBarHTML('Cut parts', editing, 'startEditIT()', 'saveITCorrections()', 'cancelEditIT()')}
       <div class="table-wrap"><table class="rt"><thead><tr><th>PLU</th><th>Description</th><th>Material</th><th class="r">Qty (kg)</th><th></th></tr></thead><tbody>${cutRows}</tbody></table></div>
-      ${done ? '' : `
+      ${ro ? '' : `
       <div class="grid3">
         <div class="field"><label for="itAddCutPluSelect">Add cut part – PLU</label><select id="itAddCutPluSelect"><option value="">Select PLU…</option>${cutOptions}</select></div>
         <div class="field"><label for="itAddCutQtyInput">Quantity (kg)</label><input id="itAddCutQtyInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"/></div>
         <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="onAddCutPartIT()">+ Add cut part</button></div>
       </div>`}
       <div class="summary-strip" id="itSummaryStrip">${itSummaryHTML(e)}</div>
-      ${done ? '' : `<div class="btn-row"><button class="btn btn-outline" onclick="saveITCorrections()">Save corrections</button></div>`}
     </div>
 
     <div class="card">
@@ -759,7 +768,7 @@ function renderITDetail() {
       <div class="grid3">
         <div class="field"><label for="sysAmountInput">System amount</label>
           <input id="sysAmountInput" type="number" step="0.01" inputmode="decimal" placeholder="0.00" value="${esc(F.sys)}" oninput="STATE.itForm.sys=this.value" ${done ? 'disabled' : ''}/></div>
-        <div class="field"><label>&nbsp;</label><button class="btn btn-outline" onclick="calculateEntry()" ${done ? 'disabled' : ''}>Calculate</button></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-outline" onclick="calculateEntry()" ${done || editing ? 'disabled' : ''}>Calculate</button></div>
       </div>
       <div id="calcArea">${calcAreaHTML()}</div>
     </div>
@@ -773,10 +782,10 @@ function renderITDetail() {
       <div class="grid2" id="itWdContainer">${itWdHTML(e, done)}</div>
       <div class="field" style="max-width:300px;"><label for="keyedByInput">Key in by</label><input id="keyedByInput" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.itForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
       <div class="btn-row">
-        ${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="submitItBtn" onclick="submitITEntry()">Submit</button>`}
+        ${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="submitItBtn" onclick="submitITEntry()" ${editing ? 'disabled' : ''}>Submit</button>`}
         <button class="btn btn-outline" onclick="printEntry(STATE.it)">Print</button>
       </div>
-      ${done ? '' : `<div class="hint" style="margin-top:12px;">You can print at any time. Fields not filled in yet print blank.</div>`}
+      ${done ? '' : `<div class="hint" style="margin-top:12px;">${editing ? 'Save or cancel your changes before submitting. ' : ''}You can print at any time. Fields not filled in yet print blank.</div>`}
     </div>`;
 }
 function itSummaryHTML(e) {
@@ -841,7 +850,17 @@ async function saveITCorrections() {
   if (!checkITQuantities()) return;
   try { await api('entries?id=' + encodeURIComponent(STATE.it.id), { method: 'PATCH', body: itPayload() }); }
   catch (err) { toast(err.message, 'error'); return; }
-  toast('Corrections saved.', 'success');
+  STATE.itEditing = false; STATE.itSnap = null;
+  toast('Corrections saved.', 'success'); renderITDetail();
+}
+function startEditIT() {
+  const e = STATE.it;
+  STATE.itSnap = JSON.stringify({ base: e.base, cutParts: e.cutParts, totalCutQty: e.totalCutQty, difference: e.difference, calc: STATE.itCalc });
+  STATE.itEditing = true; renderITDetail();
+}
+function cancelEditIT() {
+  if (STATE.itSnap) { const o = JSON.parse(STATE.itSnap); Object.assign(STATE.it, { base: o.base, cutParts: o.cutParts, totalCutQty: o.totalCutQty, difference: o.difference }); STATE.itCalc = o.calc; }
+  STATE.itEditing = false; STATE.itSnap = null; renderITDetail();
 }
 
 // Same valuation logic as the old app.
@@ -1247,7 +1266,7 @@ async function pageFruitDetail(m, token) {
   if (stale(token)) return;
   STATE.fruitIt = JSON.parse(JSON.stringify(res.entry));
   STATE.fruitForm = { matA: STATE.fruitIt.materialDocA || '', matB: STATE.fruitIt.materialDocB || '', by: STATE.fruitIt.keyedInBy || '' };
-  STATE.copied = {};
+  STATE.copied = {}; STATE.fEditing = false; STATE.fSnap = null;
   renderFruitDetail();
 }
 // Items that share a material code are shown (and copied/printed) as one row:
@@ -1264,14 +1283,15 @@ function groupByMaterial(items) {
 }
 function renderFruitDetail() {
   const e = STATE.fruitIt, F = STATE.fruitForm, done = e.status === 'completed';
+  const editing = !done && !!STATE.fEditing, ro = done || !editing;
   const groups = groupByMaterial(e.items), merged = groups.some(g => g.plus.length > 1);
   const rows = groups.length ? groups.map((g, n) => {
     const single = g.plus.length === 1;
-    const qty = (done || !single) ? fmtQty(g.qty) : fruitQtyInput(e.items[g.idx[0]], g.idx[0], 'onEditFruitQtyIT');
+    const qty = (ro || !single) ? fmtQty(g.qty) : fruitQtyInput(e.items[g.idx[0]], g.idx[0], 'onEditFruitQtyIT');
     return `<tr><td class="mono" data-label="#">${n + 1}</td><td class="mono" data-label="PLU">${g.plus.map(esc).join('<br>')}</td><td data-label="Description">${esc(g.description)}</td>
       <td class="mono" data-label="Material">${esc(g.material)}</td><td data-label="Unit">${esc(g.uom)}</td>
       <td class="mono r" data-label="Qty">${qty}</td>
-      <td class="r" data-label="">${done ? '' : `<button class="btn btn-danger btn-sm" onclick="removeFruitMaterialIT('${esc(g.material)}')">Remove</button>`}</td></tr>`;
+      <td class="r" data-label="">${ro ? '' : `<button class="btn btn-danger btn-sm" onclick="removeFruitMaterialIT('${esc(g.material)}')">Remove</button>`}</td></tr>`;
   }).join('')
     : `<tr class="empty-row"><td colspan="7">No items. Add at least one.</td></tr>`;
   document.getElementById('content').innerHTML = `
@@ -1285,17 +1305,17 @@ function renderFruitDetail() {
         <div class="field"><label>Record by</label><input type="text" readonly value="${esc(e.recordedBy)}"/></div>
         <div class="field"><label>Supervisor</label><input type="text" readonly value="${esc(e.supervisor)}"/></div>
       </div>
-      <div class="divider-label">Fruit items</div>
+      ${done ? '<div class="divider-label">Fruit items</div>' : editBarHTML('Fruit items', editing, 'startEditFruitIT()', 'saveFruitCorrections()', 'cancelEditFruitIT()')}
       <div class="table-wrap"><table class="rt"><thead><tr><th>#</th><th>PLU</th><th>Description</th><th>Material</th><th>Unit</th><th class="r">Qty</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       ${merged ? '<div class="hint">PLUs with the same material code are combined into one row. The quantity is the total of those PLUs.</div>' : ''}
-      ${done ? '' : `${pluWidgetHTML('addFruitItemIT', false)}`}
+      ${ro ? '' : `${pluWidgetHTML('addFruitItemIT', false)}`}
       <div class="divider-label">Mixed Fruit BB</div>
       <div class="grid2">
-        <div class="field"><label for="itOutSel">Product</label>${outputSelectHTML('itOutSel', e.output.plu, fruitOutputs(), 'onEditFruitOutIT(this.value)', done)}</div>
+        <div class="field"><label for="itOutSel">Product</label>${outputSelectHTML('itOutSel', e.output.plu, fruitOutputs(), 'onEditFruitOutIT(this.value)', ro)}</div>
         <div class="field"><label for="itOutQty">Quantity (ea)</label>
-          <input id="itOutQty" type="number" inputmode="numeric" min="0" step="1" value="${esc(e.output.qty)}" oninput="STATE.fruitIt.output.qty=Number(this.value)||0" ${done ? 'disabled' : ''}/></div>
+          <input id="itOutQty" type="number" inputmode="numeric" min="0" step="1" value="${esc(e.output.qty)}" oninput="STATE.fruitIt.output.qty=Number(this.value)||0" ${ro ? 'disabled' : ''}/></div>
       </div>
-      ${done ? '' : `<div class="hint">Changes are saved when you press Save corrections or Submit.</div><div class="btn-row"><button class="btn btn-outline" onclick="saveFruitCorrections()">Save corrections</button></div>`}
+      ${editing ? `<div class="hint">Press Save to keep your changes or Cancel to discard them.</div>` : ''}
     </div>
 
     <div class="card">
@@ -1313,10 +1333,15 @@ function renderFruitDetail() {
         <div class="field"><label for="fMatB">Material document B</label><input id="fMatB" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="e.g. 1000011122" value="${esc(F.matB)}" oninput="STATE.fruitForm.matB=upperize(this)" ${done ? 'disabled' : ''}/></div>
       </div>
       <div class="field" style="max-width:300px;"><label for="fKeyBy">Key in by</label><input id="fKeyBy" class="uc" autocapitalize="characters" spellcheck="false" type="text" placeholder="Name" value="${esc(F.by)}" oninput="STATE.fruitForm.by=upperize(this)" ${done ? 'disabled' : ''}/></div>
-      <div class="btn-row">${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="fSubmitItBtn" onclick="submitFruitIT()">Submit</button>`}
+      <div class="btn-row">${done ? `<span class="pill done">${ICON.check}Processed ${esc(fmtStamp(e.keyedInAt))}</span>` : `<button class="btn btn-primary" id="fSubmitItBtn" onclick="submitFruitIT()" ${editing ? 'disabled' : ''}>Submit</button>`}
         <button class="btn btn-outline" onclick="printFruit(STATE.fruitIt)">Print</button></div>
-      ${done ? '' : `<div class="hint" style="margin-top:12px;">You can print at any time. Fields not filled in yet print blank.</div>`}
+      ${done ? '' : `<div class="hint" style="margin-top:12px;">${editing ? 'Save or cancel your changes before submitting. ' : ''}You can print at any time. Fields not filled in yet print blank.</div>`}
     </div>`;
+}
+function startEditFruitIT() { STATE.fSnap = JSON.stringify({ items: STATE.fruitIt.items, output: STATE.fruitIt.output }); STATE.fEditing = true; renderFruitDetail(); }
+function cancelEditFruitIT() {
+  if (STATE.fSnap) { const o = JSON.parse(STATE.fSnap); STATE.fruitIt.items = o.items; STATE.fruitIt.output = o.output; }
+  STATE.fEditing = false; STATE.fSnap = null; renderFruitDetail();
 }
 function onEditFruitQtyIT(i, v) { STATE.fruitIt.items[i].qty = Number(v) || 0; refreshBatches(); }
 function onEditFruitOutIT(plu) {
@@ -1343,7 +1368,8 @@ async function saveFruitCorrections() {
   if (!checkFruitIT()) return;
   try { await api('mf-entries?id=' + encodeURIComponent(STATE.fruitIt.id), { method: 'PATCH', body: fruitPayloadIT() }); }
   catch (err) { toast(err.message, 'error'); return; }
-  toast('Corrections saved.', 'success');
+  STATE.fEditing = false; STATE.fSnap = null;
+  toast('Corrections saved.', 'success'); renderFruitDetail();
 }
 async function submitFruitIT() {
   const e = STATE.fruitIt, F = STATE.fruitForm;
