@@ -478,7 +478,6 @@ async function pageDashboard(_, token) {
   const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour:'numeric', hour12:false }).format(new Date()));
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const today = new Date().toLocaleDateString('en-GB', { timeZone: TZ, weekday:'long', day:'numeric', month:'long', year:'numeric' });
-  const waiting = (n, at) => (n ? `Oldest waiting ${ago(at).replace(' ago', '')}` : 'All caught up');
 
   const chickenRecent = c.recent.length ? c.recent.map(e => `
     <div class="list-item" onclick="location.hash='#/chicken/it/${esc(e.id)}'">
@@ -508,17 +507,12 @@ async function pageDashboard(_, token) {
 
     <h2 class="section-h">Chicken cut parts</h2>
     <div class="stats">
-      <a class="stat ${c.pending ? 'attn' : ''}" href="#/chicken/it"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div><div class="sub">${esc(waiting(c.pending, c.oldestPendingAt))}</div></a>
-      <div class="stat"><div class="lbl">Entries today</div><div class="big">${c.today}</div><div class="sub">Malaysia time</div></div>
-      <div class="stat"><div class="lbl">Entries this month</div><div class="big">${c.monthEntries}</div><div class="sub">${fmtQty(c.monthBaseKg)} kg base product</div></div>
-      <div class="stat"><div class="lbl">Cut yield this month</div><div class="big">${c.monthYieldPct === null ? '–' : c.monthYieldPct + '%'}</div><div class="sub">${fmtQty(c.monthCutKg)} kg of cut parts</div></div>
+      <a class="stat ${c.pending ? 'attn' : ''}" href="#/chicken/it"><div class="lbl">Waiting for IT processing</div><div class="big">${c.pending}</div></a>
     </div>
 
     <h2 class="section-h">Mixed fruit BB</h2>
     <div class="stats">
-      <a class="stat ${f.pending ? 'attn' : ''}" href="#/fruit/it"><div class="lbl">Waiting for IT processing</div><div class="big">${f.pending}</div><div class="sub">${esc(waiting(f.pending, f.oldestPendingAt))}</div></a>
-      <div class="stat"><div class="lbl">Entries today</div><div class="big">${f.today}</div><div class="sub">Malaysia time</div></div>
-      <div class="stat"><div class="lbl">Entries this month</div><div class="big">${f.monthEntries}</div><div class="sub">&nbsp;</div></div>
+      <a class="stat ${f.pending ? 'attn' : ''}" href="#/fruit/it"><div class="lbl">Waiting for IT processing</div><div class="big">${f.pending}</div></a>
       <div class="stat"><div class="lbl">Mixed Fruit BB this month</div><div class="big">${fmtQty(f.monthBbQty)}</div><div class="sub">ea produced</div></div>
     </div>
 
