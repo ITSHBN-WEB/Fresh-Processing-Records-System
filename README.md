@@ -43,7 +43,7 @@ Safe to re-run: entries that already exist are skipped.
 
 ### 4b. Load the Mixed Fruit BB masterlist (once)
 
-The masterlist is loaded with an SQL script in the Neon SQL Editor, not with npm. Fix the PLUs listed in `Mixed_Fruit_BB_masterlist.needs-fix.csv` first, then generate and run the SQL (`insert into mf_items ... on conflict (plu) do nothing`). Items can also be added one by one in Admin → Master data → Mixed fruit BB. Scanned labels `28` + 5-digit PLU + 11 digits are read as the 5-digit PLU.
+The masterlist is loaded with `db/mixed_fruit_masterlist.sql` in the Neon SQL Editor (run it after `mixed_fruit.sql`; it is safe to re-run). Rows whose PLU was damaged by Excel are left out because those codes are not used in the web. Items can also be added in Admin → Master data → Mixed fruit BB. Scanned labels `28` + 5-digit PLU + 11 digits are read as the 5-digit PLU.
 
 ### 5. Control Tower
 The pending-count endpoint keeps the same response shape as the old Apps Script one:
