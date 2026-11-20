@@ -1200,9 +1200,9 @@ function printFruit(src) {
     <table class="print-table" style="margin-top:14px">
       <thead><tr><th>Mixed Fruit BB Material</th><th>PLU</th><th>Description</th><th>Unit</th><th>Qty</th></tr></thead>
       <tbody><tr><td>${esc(e.output.material)}</td><td>${esc(e.output.plu)}</td><td style="text-align:left">${esc(e.output.description)}</td><td>${esc(e.output.uom)}</td><td><strong>${fmtQty(e.output.qty)}</strong></td></tr></tbody></table>
-    <div class="print-footer">
-      Material Doc A: <strong>${esc(e.materialDocA || '')}</strong> &nbsp;&nbsp; Material Doc B: <strong>${esc(e.materialDocB || '')}</strong><br/>
-      Key in by: <strong>${esc(e.keyedInBy || '')}</strong> &nbsp;&nbsp; Date: <strong>${esc(fmtStamp(e.keyedInAt))}</strong>
+    <div class="print-footer" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;">
+      ${[['Material Doc A:', e.materialDocA], ['Material Doc B:', e.materialDocB], ['Key in by:', e.keyedInBy], ['Date:', e.keyedInAt ? fmtStamp(e.keyedInAt) : '']].map(([l, v]) =>
+        `<div style="display:flex;align-items:flex-end;gap:8px;"><span style="white-space:nowrap;">${l}</span><strong style="flex:1;min-height:1.3em;${v ? '' : 'border-bottom:1px solid #000;'}">${esc(v || '')}</strong></div>`).join('')}
     </div>
     <div class="print-operation">
       <div class="op-title">Operation:</div>
